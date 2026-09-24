@@ -1,0 +1,17 @@
+.mt { margin-top: 20px; }
+.range .input { width: 150px; height: 38px; }
+.cur { font-size: 14px; color: var(--muted); font-weight: 700; }
+.mini { display: flex; align-items: center; gap: 14px; padding: 16px 18px;
+  .icon { font-size: 28px; }
+  strong { display: block; font-size: 20px; font-weight: 800; }
+  small { color: var(--text-2); }
+  .c1 { color: #f59e0b; } .c2 { color: #8b5cf6; } .c3 { color: #2563eb; } .c4 { color: #10b981; }
+}
+.pad { padding-left: 20px; padding-right: 20px; }
+.card-head.pad { padding-top: 18px; margin-bottom: 4px; }
+.rank { width: 26px; height: 26px; border-radius: 8px; display: grid; place-items: center; background: var(--primary-soft); color: var(--primary); font-weight: 800; font-size: 12px; }
+.bar { height: 6px; border-radius: 6px; background: var(--surface-2); margin-top: 6px; overflow: hidden; i { display: block; height: 100%; background: var(--grad); border-radius: 6px; } }
+.num { text-align: right; }
+.avatar.sm { width: 32px; height: 32px; border-radius: 10px; font-size: 13px; }
+.kpi-icon.tiny { width: 32px; height: 32px; border-radius: 10px; display: grid; place-items: center; background: var(--primary-soft); color: var(--primary); .icon { font-size: 18px; } }
+.ellipsis { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }

@@ -1,0 +1,152 @@
+<div class="page">
+  <div class="page-head">
+    <div>
+      <h1>Valider un lavage</h1>
+      <p class="muted">Scannez le QR code du client ou saisissez son code membre. Les points sont crédités instantanément.</p>
+    </div>
+    @if (client() || walkIn()) { <button class="btn" (click)="reset()"><span class="icon">restart_alt</span>Nouveau client</button> }
+  </div>
+
+  @if (done(); as w) {
+    <div class="card success-card">
+      <div class="burst"><span class="icon filled">check</span></div>
+      <h1>Lavage validé !</h1>
+      <p class="muted">{{ w.service_name }} · {{ w.vehicle_type_name }} @if (w.washer_name) { · lavé par <strong>{{ w.washer_name }}</strong> }</p>
+      <div class="result-row">
+        <div><small>Montant</small><strong>{{ w.price | number:'1.0-0' }} {{ store.currency }}</strong>@if (w.discount) {<em>-{{ w.discount | number:'1.0-0' }} remise</em>}</div>
+        @if (w.user_id) {
+          <div><small>Points gagnés</small><strong class="grad-text">+{{ w.points_earned }}</strong></div>
+          <div><small>Nouveau solde</small><strong>{{ newBalance() }} pts</strong></div>
+          @if (w.water_saved_liters) { <div><small>Eau économisée</small><strong class="eco">{{ w.water_saved_liters | number:'1.0-0' }} L</strong></div> }
+        }
+      </div>
+      <button class="btn primary lg" (click)="reset()"><span class="icon">qr_code_scanner</span>Client suivant</button>
+    </div>
+  } @else {
+    <div class="layout">
+      <div class="col">
+        <div class="card scan-card">
+          <div class="scan-visual" [class.live]="scanning()">
+            <div id="qr-reader"></div>
+            @if (!scanning()) {
+              <div class="placeholder">
+                <div class="frame"><span class="icon">qr_code_2</span><i class="line"></i></div>
+                <button class="btn primary" (click)="startScan()"><span class="icon">photo_camera</span>Activer la caméra</button>
+              </div>
+            } @else {
+              <button class="btn sm stop" (click)="stopScan()"><span class="icon">close</span>Arrêter</button>
+            }
+          </div>
+          <form class="manual" (ngSubmit)="lookup()">
+            <div class="input-icon" style="flex:1">
+              <span class="icon">badge</span>
+              <input #codeInput class="input" name="code" [(ngModel)]="code" placeholder="Code membre ou scan (douchette)" autocomplete="off">
+            </div>
+            <button class="btn primary" [disabled]="!code.trim()">Rechercher</button>
+          </form>
+          <button class="btn ghost block" (click)="startWalkIn()"><span class="icon">person_off</span>Client de passage (sans compte)</button>
+        </div>
+
+        <div class="card">
+          <div class="card-head"><h3><span class="icon">redeem</span> Remettre une récompense</h3></div>
+          <form class="manual" (ngSubmit)="validateRedemptionCode()">
+            <input class="input" name="rc" [(ngModel)]="redemptionCode" placeholder="Code de retrait (ex : 7KX2M9PQ)" autocomplete="off" style="text-transform:uppercase">
+            <button class="btn success" [disabled]="!redemptionCode.trim()">Valider</button>
+          </form>
+        </div>
+      </div>
+
+      <div class="col">
+        @if (client(); as c) {
+          <div class="card client-card">
+            <div class="client-top">
+              <span class="avatar lg">{{ c.first_name[0] }}{{ c.last_name[0] || '' }}</span>
+              <div style="flex:1">
+                <h2>{{ c.first_name }} {{ c.last_name }}</h2>
+                <p class="muted small">{{ c.member_code }} · {{ c.phone || c.email }}</p>
+                <div class="row" style="margin-top:6px">
+                  @if (c.is_loyal) { <span class="badge warning"><span class="icon filled">workspace_premium</span>Client fidèle</span> }
+                  <span class="badge neutral">{{ c.visits }} visite(s)</span>
+                  @if (c.last_visit_at) { <span class="badge neutral">Dernière : {{ c.last_visit_at | date:'dd/MM/yyyy' }}</span> }
+                </div>
+              </div>
+              <div class="balance"><small>Solde</small><strong>{{ c.balance | number }}</strong><small>points</small></div>
+            </div>
+            @if (c.vehicles.length) {
+              <div class="chips" style="margin-top:14px">
+                @for (v of c.vehicles; track v.id) {
+                  <button class="chip" [class.active]="plate === v.plate" (click)="plate = v.plate || ''"><span class="icon">directions_car</span>{{ v.label }} @if (v.plate) { · {{ v.plate }} }</button>
+                }
+              </div>
+            }
+            @if (c.upcoming_bookings.length) {
+              <div class="notice"><span class="icon">event</span>Réservation à {{ c.upcoming_bookings[0].start_at | date:'HH:mm' }} : {{ c.upcoming_bookings[0].service_name }} ({{ c.upcoming_bookings[0].vehicle_type_name }})</div>
+            }
+            @for (r of c.pending_redemptions; track r.id) {
+              <div class="notice gift">
+                <span class="icon filled">redeem</span>
+                <div style="flex:1"><strong>{{ r.reward_name }}</strong><div class="small">Récompense à remettre · code {{ r.code }}</div></div>
+                <button class="btn sm success" (click)="giveReward(r)">Remettre</button>
+              </div>
+            }
+          </div>
+        }
+
+        @if (client() || walkIn()) {
+          <div class="card">
+            @if (walkIn()) { <div class="notice"><span class="icon">info</span>Client de passage : le lavage est enregistré sans attribution de points.</div> }
+            <h3 class="step"><span>1</span>Type de véhicule</h3>
+            <div class="tiles">
+              @for (v of activeVehicles(); track v.id) {
+                <button class="tile" [class.active]="vehicleTypeId() === v.id" (click)="vehicleTypeId.set(v.id)">
+                  <span class="icon">{{ v.icon }}</span>{{ v.name }}
+                </button>
+              }
+            </div>
+            <h3 class="step"><span>2</span>Service</h3>
+            <div class="tiles services">
+              @for (s of activeServices(); track s.id) {
+                <button class="tile" [class.active]="serviceId() === s.id" (click)="serviceId.set(s.id)">
+                  <span class="icon">{{ s.icon }}</span>
+                  <strong>{{ s.name }}</strong>
+                  @if (rule(s.id, vehicleTypeId()); as r) {
+                    <small>{{ r.price | number:'1.0-0' }} {{ store.currency }} · <b>+{{ r.points }} pts</b></small>
+                  } @else if (vehicleTypeId()) { <small class="muted">Tarif non défini</small> }
+                  @if (s.is_eco) { <em class="eco-tag"><span class="icon">eco</span></em> }
+                </button>
+              }
+            </div>
+            <h3 class="step"><span>3</span>Laveur</h3>
+            <div class="chips">
+              <button class="chip" [class.active]="washerId === null" (click)="washerId = null">Non précisé</button>
+              @for (w of activeWashers(); track w.id) {
+                <button class="chip" [class.active]="washerId === w.id" (click)="washerId = w.id"><span class="icon">person</span>{{ w.full_name }}</button>
+              }
+            </div>
+            <div class="form-grid" style="margin-top:18px">
+              <div class="field"><label>Immatriculation</label><input class="input" [(ngModel)]="plate" placeholder="AB-123-CD"></div>
+              <div class="field"><label>Note</label><input class="input" [(ngModel)]="note" placeholder="Optionnel"></div>
+            </div>
+            <div class="summary">
+              <div>
+                @if (selectedRule(); as r) {
+                  <strong>{{ r.price | number:'1.0-0' }} {{ store.currency }}</strong>
+                  @if (client()) { <span class="badge success">+{{ r.points }} points</span> }
+                } @else { <span class="muted">Sélectionnez un véhicule et un service</span> }
+              </div>
+              <button class="btn primary lg" [disabled]="!ready() || saving()" (click)="validate()">
+                <span class="icon">task_alt</span>{{ saving() ? 'Validation…' : 'Valider le lavage' }}
+              </button>
+            </div>
+          </div>
+        } @else {
+          <div class="card empty-state">
+            <div class="illu"><span class="icon">qr_code_scanner</span></div>
+            <h2>En attente d'un client</h2>
+            <p class="muted">Scannez le QR code affiché dans l'application Lavpro du client, ou saisissez son code membre.</p>
+          </div>
+        }
+      </div>
+    </div>
+  }
+</div>

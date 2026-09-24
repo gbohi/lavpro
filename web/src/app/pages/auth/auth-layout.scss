@@ -1,0 +1,27 @@
+:host { display: grid; grid-template-columns: 1.1fr 1fr; min-height: 100vh; background: var(--bg); }
+.hero {
+  position: relative; overflow: hidden; color: #fff; padding: 48px; display: flex; flex-direction: column; justify-content: space-between;
+  background: radial-gradient(circle at 20% 20%, rgba(6, 182, 212, .55), transparent 45%), radial-gradient(circle at 80% 80%, rgba(37, 99, 235, .7), transparent 50%), #0b1220;
+  .brand { display: flex; align-items: center; gap: 12px; font-size: 22px; font-weight: 800;
+    .logo { width: 46px; height: 46px; border-radius: 14px; background: var(--grad); display: grid; place-items: center; box-shadow: 0 10px 30px rgba(6, 182, 212, .5); }
+  }
+  h1 { font-size: 44px; line-height: 1.08; max-width: 520px; letter-spacing: -.035em; }
+  .lead { margin-top: 16px; font-size: 16px; color: #c7d2fe; max-width: 460px; }
+  .features { display: grid; gap: 14px; margin-top: 32px; }
+  .feature { display: flex; align-items: center; gap: 14px; padding: 14px 16px; border-radius: 16px; background: rgba(255, 255, 255, .07); border: 1px solid rgba(255, 255, 255, .1); backdrop-filter: blur(8px); max-width: 460px;
+    .icon { width: 38px; height: 38px; border-radius: 10px; display: grid; place-items: center; background: rgba(255, 255, 255, .12); }
+    strong { display: block; } small { color: #b6c2e2; }
+  }
+  .bubble { position: absolute; border-radius: 50%; background: rgba(255, 255, 255, .06); animation: float 9s ease-in-out infinite; }
+  .b1 { width: 280px; height: 280px; right: -80px; top: 12%; }
+  .b2 { width: 140px; height: 140px; right: 20%; bottom: 8%; animation-delay: -3s; }
+  .foot { color: #94a3b8; font-size: 13px; }
+}
+.panel { display: flex; align-items: center; justify-content: center; padding: 32px 20px; }
+.form-card { width: 100%; max-width: 440px; animation: fadeUp .4s ease both;
+  h2 { font-size: 28px; font-weight: 800; }
+  form { display: grid; gap: 16px; margin-top: 28px; }
+  .switch-link { margin-top: 24px; text-align: center; color: var(--text-2); }
+}
+@keyframes float { 50% { transform: translateY(-24px) scale(1.04); } }
+@media (max-width: 900px) { :host { grid-template-columns: 1fr; } .hero { display: none; } }

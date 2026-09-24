@@ -1,0 +1,75 @@
+<div class="shell" [class.menu-open]="menuOpen()">
+  <aside class="sidebar">
+    <a class="brand" routerLink="/dashboard">
+      <span class="logo"><span class="icon filled">water_drop</span></span>
+      <span><strong>Lavpro</strong><small>Espace Pro</small></span>
+    </a>
+
+    @if (auth.centerId()) {
+      <a routerLink="/validate" class="cta">
+        <span class="icon">qr_code_scanner</span> Scanner un client
+      </a>
+      @for (g of groups; track g.title) {
+        <div class="group">{{ g.title }}</div>
+        @for (item of g.items; track item.path) {
+          <a class="nav" [routerLink]="item.path" routerLinkActive="active">
+            <span class="icon">{{ item.icon }}</span>{{ item.label }}
+          </a>
+        }
+      }
+    }
+    @if (auth.isSuperadmin()) {
+      <div class="group">Plateforme</div>
+      <a class="nav" routerLink="/admin" routerLinkActive="active"><span class="icon">admin_panel_settings</span>Administration</a>
+    }
+
+    <div class="sidebar-foot">
+      <div class="me">
+        <span class="avatar">{{ initials() }}</span>
+        <div class="who">
+          <strong>{{ auth.user()?.first_name }} {{ auth.user()?.last_name }}</strong>
+          <small>{{ auth.isSuperadmin() ? 'Super-admin' : auth.membership()?.role === 'owner' ? 'Propriétaire' : 'Gestionnaire' }}</small>
+        </div>
+        <button class="btn ghost icon-only" title="Se déconnecter" (click)="auth.logout()"><span class="icon">logout</span></button>
+      </div>
+    </div>
+  </aside>
+  <div class="scrim" (click)="menuOpen.set(false)"></div>
+
+  <div class="main">
+    <header class="topbar">
+      <button class="btn ghost icon-only burger" (click)="menuOpen.set(!menuOpen())" aria-label="Menu"><span class="icon">menu</span></button>
+
+      @if (auth.memberships().length > 1) {
+        <select class="input center-select" [value]="auth.centerId()" (change)="switchCenter($any($event.target).value)">
+          @for (m of auth.memberships(); track m.center_id) {
+            <option [value]="m.center_id">{{ m.center_name }}</option>
+          }
+        </select>
+      } @else {
+        <div class="center-name">
+          <span class="icon">storefront</span>{{ store.center()?.name ?? 'Lavpro' }}
+        </div>
+      }
+
+      <span class="spacer"></span>
+
+      @if (occupancy(); as o) {
+        <div class="queue" [attr.data-level]="o.level" title="Affluence visible par les clients en temps réel">
+          <span class="dot"></span>
+          <div class="q-text">
+            <small>Affluence · {{ occupancyLabel(o.level) }}</small>
+            <strong>{{ o.queue }} en attente · ~{{ o.estimated_wait_minutes }} min</strong>
+          </div>
+          <button class="btn sm icon-only" (click)="queue(-1)" [disabled]="!o.queue" aria-label="Retirer"><span class="icon">remove</span></button>
+          <button class="btn sm icon-only" (click)="queue(1)" aria-label="Ajouter"><span class="icon">add</span></button>
+        </div>
+      }
+
+      <button class="btn ghost icon-only" (click)="cycleTheme()" [title]="'Thème : ' + theme()">
+        <span class="icon">{{ theme() === 'dark' ? 'dark_mode' : theme() === 'light' ? 'light_mode' : 'contrast' }}</span>
+      </button>
+    </header>
+    <main><router-outlet /></main>
+  </div>
+</div>

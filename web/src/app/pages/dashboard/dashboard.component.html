@@ -1,0 +1,122 @@
+<div class="page">
+  <div class="page-head">
+    <div>
+      <h1>{{ greeting }}, {{ auth.user()?.first_name }} ✨</h1>
+      <p class="muted">Voici l'activité de votre centre sur la période sélectionnée.</p>
+    </div>
+    <div class="row">
+      <div class="chips">
+        @for (p of periods; track p.days) {
+          <button class="chip" [class.active]="period() === p.days" (click)="setPeriod(p.days)">{{ p.label }}</button>
+        }
+      </div>
+      <div class="row range">
+        <input class="input" type="date" [(ngModel)]="from" (change)="period.set(-1); load()">
+        <span class="muted">→</span>
+        <input class="input" type="date" [(ngModel)]="to" (change)="period.set(-1); load()">
+      </div>
+    </div>
+  </div>
+
+  @if (data(); as d) {
+    <div class="grid grid-4">
+      <div class="card kpi">
+        <span class="kpi-icon"><span class="icon">local_car_wash</span></span>
+        <div><div class="kpi-label">Lavages</div><div class="kpi-value">{{ d.kpis.washes | number }}</div><div class="kpi-sub">{{ d.kpis.washes_per_day | number:'1.0-1' }} / jour en moyenne</div></div>
+      </div>
+      <div class="card kpi">
+        <span class="kpi-icon violet"><span class="icon">payments</span></span>
+        <div><div class="kpi-label">Chiffre d'affaires</div><div class="kpi-value">{{ d.kpis.revenue | number:'1.0-0' }} <small class="cur">{{ d.currency }}</small></div><div class="kpi-sub">Panier moyen {{ d.kpis.avg_ticket | number:'1.0-0' }} {{ d.currency }}</div></div>
+      </div>
+      <div class="card kpi">
+        <span class="kpi-icon warm"><span class="icon">favorite</span></span>
+        <div><div class="kpi-label">Taux de fidélité</div><div class="kpi-value">{{ d.kpis.loyalty_rate | number:'1.0-1' }} %</div><div class="kpi-sub">{{ d.kpis.loyal_clients }} clients fidèles · {{ d.kpis.unique_clients }} actifs</div></div>
+      </div>
+      <div class="card kpi">
+        <span class="kpi-icon eco"><span class="icon">person_add</span></span>
+        <div><div class="kpi-label">Nouveaux clients</div><div class="kpi-value">{{ d.kpis.new_clients | number }}</div><div class="kpi-sub">{{ d.kpis.total_clients | number }} clients au total</div></div>
+      </div>
+    </div>
+
+    <div class="grid grid-3 mt">
+      <div class="card span-2">
+        <div class="card-head"><h2>Évolution de l'activité</h2><span class="badge neutral">{{ d.period.days }} jours</span></div>
+        <app-chart [config]="trend()" [height]="300" />
+      </div>
+      <div class="card">
+        <div class="card-head"><h2>Services les plus populaires</h2></div>
+        @if (d.services.length) {
+          <app-chart [config]="services()" [height]="300" />
+        } @else {
+          <div class="empty"><span class="icon">donut_large</span>Aucun lavage sur la période</div>
+        }
+      </div>
+    </div>
+
+    <div class="grid grid-4 mt">
+      <div class="card mini">
+        <span class="icon filled c1">stars</span>
+        <div><strong>{{ d.kpis.points_issued | number }}</strong><small>points distribués</small></div>
+      </div>
+      <div class="card mini">
+        <span class="icon filled c2">redeem</span>
+        <div><strong>{{ d.kpis.points_redeemed | number }}</strong><small>points échangés</small></div>
+      </div>
+      <div class="card mini">
+        <span class="icon filled c3">event_available</span>
+        <div><strong>{{ d.kpis.bookings | number }}</strong><small>réservations</small></div>
+      </div>
+      <div class="card mini">
+        <span class="icon filled c4">water_drop</span>
+        <div><strong>{{ d.kpis.water_saved_liters | number:'1.0-0' }} L</strong><small>d'eau économisée</small></div>
+      </div>
+    </div>
+
+    <div class="grid grid-2 mt">
+      <div class="card">
+        <div class="card-head"><h2>Heures d'affluence</h2></div>
+        <app-chart [config]="hourly()" [height]="230" />
+      </div>
+      <div class="card">
+        <div class="card-head"><h2>Jours de la semaine</h2></div>
+        <app-chart [config]="weekdays()" [height]="230" />
+      </div>
+    </div>
+
+    <div class="grid grid-3 mt">
+      <div class="card flush">
+        <div class="card-head pad"><h2>Performance des laveurs</h2><a routerLink="/reports" class="small">Détails →</a></div>
+        @for (w of d.washers; track w.id; let i = $index) {
+          <div class="list-item pad">
+            <span class="rank">{{ i + 1 }}</span>
+            <div style="flex:1"><strong>{{ w.name }}</strong><div class="bar"><i [style.width.%]="(w.count / d.washers[0].count) * 100"></i></div></div>
+            <div class="num"><strong>{{ w.count }}</strong><small class="muted"> lavages</small></div>
+          </div>
+        } @empty { <div class="empty">Aucune donnée</div> }
+      </div>
+      <div class="card flush">
+        <div class="card-head pad"><h2>Meilleurs clients</h2><a routerLink="/clients" class="small">Tous →</a></div>
+        @for (c of d.top_clients.slice(0, 6); track c.id) {
+          <div class="list-item pad">
+            <span class="avatar sm">{{ c.name[0] }}</span>
+            <div style="flex:1"><strong>{{ c.name }}</strong><div class="small muted">{{ c.spent | number:'1.0-0' }} {{ d.currency }}</div></div>
+            <span class="badge">{{ c.washes }} visites</span>
+          </div>
+        } @empty { <div class="empty">Aucune donnée</div> }
+      </div>
+      <div class="card flush">
+        <div class="card-head pad"><h2>Derniers lavages</h2><a routerLink="/washes" class="small">Historique →</a></div>
+        @for (w of recent(); track w.id) {
+          <div class="list-item pad">
+            <span class="kpi-icon tiny"><span class="icon">local_car_wash</span></span>
+            <div style="flex:1; min-width:0"><strong>{{ w.client_name ?? 'Client de passage' }}</strong><div class="small muted ellipsis">{{ w.service_name }} · {{ w.vehicle_type_name }}</div></div>
+            <div class="num small"><strong>+{{ w.points_earned }} pts</strong><div class="muted">{{ w.created_at | date:'HH:mm' }}</div></div>
+          </div>
+        } @empty { <div class="empty"><span class="icon">local_car_wash</span>Aucun lavage aujourd'hui</div> }
+      </div>
+    </div>
+  } @else {
+    <div class="grid grid-4">@for (i of [1,2,3,4]; track i) { <div class="card skeleton" style="height:110px"></div> }</div>
+    <div class="card skeleton mt" style="height:360px"></div>
+  }
+</div>
