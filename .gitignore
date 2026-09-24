@@ -1,0 +1,22 @@
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+*.db
+backend/uploads/
+.env
+.pytest_cache/
+# Node / Angular
+node_modules/
+web/dist/
+web/.angular/
+# Flutter
+mobile/.dart_tool/
+mobile/build/
+mobile/.flutter-plugins
+mobile/.flutter-plugins-dependencies
+mobile/pubspec.lock.bak
+*.iml
+.idea/
+.DS_Store
