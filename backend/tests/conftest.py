@@ -2,7 +2,9 @@ import os
 import tempfile
 
 _tmp = tempfile.mkdtemp()
-os.environ["LAVPRO_DATABASE_URL"] = f"sqlite:///{_tmp}/test.db"
+# Base PostgreSQL dédiée aux tests (vidée avant chaque test)
+os.environ["LAVPRO_DATABASE_URL"] = os.environ.get(
+    "LAVPRO_TEST_DATABASE_URL", "postgresql+psycopg://lavpro:lavpro@localhost:5432/lavpro_test")
 os.environ["LAVPRO_UPLOAD_DIR"] = f"{_tmp}/uploads"
 os.environ["LAVPRO_SUPERADMIN_EMAIL"] = "admin@test.io"
 os.environ["LAVPRO_SUPERADMIN_PASSWORD"] = "admin123"
@@ -10,7 +12,9 @@ os.environ["LAVPRO_SUPERADMIN_PASSWORD"] = "admin123"
 import pytest  # noqa: E402
 from fastapi.testclient import TestClient  # noqa: E402
 
-from app.db import Base, engine  # noqa: E402
+from sqlalchemy import text  # noqa: E402
+
+from app.db import engine  # noqa: E402
 from app.main import app  # noqa: E402
 
 API = "/api/v1"
@@ -20,7 +24,8 @@ API = "/api/v1"
 def client(monkeypatch):
     # Pas d'appel réseau météo pendant les tests
     monkeypatch.setattr("app.services.suggestions.get_forecast", lambda db, lat, lng: None)
-    Base.metadata.drop_all(bind=engine)
+    with engine.begin() as conn:
+        conn.execute(text("DROP SCHEMA public CASCADE; CREATE SCHEMA public;"))
     with TestClient(app) as c:
         yield c
 

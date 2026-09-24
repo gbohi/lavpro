@@ -1,6 +1,9 @@
 from contextlib import asynccontextmanager
 from pathlib import Path
 
+from alembic import command
+from alembic.config import Config
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
@@ -10,15 +13,25 @@ from app import models  # noqa: F401  (enregistre les modèles)
 from app.api.routes import admin, auth, centers, manage, me, uploads
 from app.core.config import get_settings
 from app.core.security import hash_password, random_code, random_token
-from app.db import Base, SessionLocal, engine
+from app.db import SessionLocal
 from app.models import User, UserRole
 from app.services.platform_settings import seed_settings
 
 settings = get_settings()
 
 
+BACKEND_DIR = Path(__file__).resolve().parent.parent
+
+
+def run_migrations() -> None:
+    """Applique les migrations Alembic en attente (équivalent de `alembic upgrade head`)."""
+    cfg = Config(str(BACKEND_DIR / "alembic.ini"))
+    cfg.attributes["configure_logger"] = False
+    command.upgrade(cfg, "head")
+
+
 def init_db() -> None:
-    Base.metadata.create_all(bind=engine)
+    run_migrations()
     with SessionLocal() as db:
         seed_settings(db)
         if settings.superadmin_email and settings.superadmin_password:

@@ -435,7 +435,7 @@ def list_clients(ctx: Ctx, db: DB, q: str | None = None, segment: str | None = Q
         stmt = stmt.where(LoyaltyAccount.last_visit_at < now - timedelta(days=ctx.center.inactive_after_days))
     elif segment == "new":
         stmt = stmt.where(LoyaltyAccount.created_at >= now - timedelta(days=30))
-    rows = db.execute(stmt.order_by(LoyaltyAccount.last_visit_at.desc()).offset(offset).limit(limit)).all()
+    rows = db.execute(stmt.order_by(LoyaltyAccount.last_visit_at.desc().nulls_last()).offset(offset).limit(limit)).all()
     since = now - timedelta(days=ctx.center.loyal_period_days)
     counts = dict(db.execute(select(Wash.user_id, func.count(Wash.id)).where(
         Wash.center_id == ctx.center.id, Wash.created_at >= since).group_by(Wash.user_id)).all())

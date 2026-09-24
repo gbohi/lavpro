@@ -4,7 +4,7 @@ Programme de fidélité et plateforme de gestion pour les centres de lavage auto
 
 | Dossier | Techno | Rôle |
 |---|---|---|
-| [`backend/`](backend) | Python 3.12 · FastAPI · SQLAlchemy 2 | API REST (auth JWT, fidélité, réservations, rappels, statistiques) |
+| [`backend/`](backend) | Python 3.12 · FastAPI · SQLAlchemy 2 · PostgreSQL · Alembic | API REST (auth JWT, fidélité, réservations, rappels, statistiques) |
 | [`web/`](web) | Angular CLI 18.0.6 | Espace Pro : back-office des centres et administration de la plateforme |
 | [`mobile/`](mobile) | Flutter | Application client (et mode gestionnaire pour scanner depuis un téléphone) |
 
@@ -21,15 +21,41 @@ Aucune donnée métier n'est codée en dur :
 
 **Centres (web)** : inscription du centre, équipe de gestionnaires (propriétaire / gestionnaire), laveurs (sans compte) avec suivi de qui a lavé quoi, validation d'un lavage par scan QR (caméra ou douchette) ou code membre, client de passage, remise des récompenses, file d'attente en direct, tableau de bord (lavages/jour, CA, services populaires, taux de fidélité, heures d'affluence, performance des laveurs), rapports par laveur avec commissions, export CSV.
 
-## Démarrage rapide
+## Base de données : PostgreSQL
+
+L'API utilise **PostgreSQL** (16 recommandé). Le schéma est géré par des **migrations Alembic**
+(`backend/migrations/`), appliquées automatiquement au démarrage de l'API.
 
 ```bash
-# 1. API (http://localhost:8000, documentation sur /docs)
+cd backend
+alembic upgrade head                                   # appliquer les migrations à la main
+alembic revision --autogenerate -m "description"       # après une modification des modèles
+```
+
+## Démarrage avec Docker (recommandé)
+
+```bash
+cp .env.example .env        # puis changez les mots de passe et LAVPRO_SECRET_KEY
+docker compose up -d --build
+docker compose exec api python -m app.jobs.seed_demo   # optionnel : données de démonstration
+```
+
+- Espace Pro : http://localhost:8080 (nginx relaie `/api` vers l'API)
+- API : http://localhost:8000 (documentation sur `/docs`) — adresse à donner à l'application mobile
+- Les données PostgreSQL et les images envoyées sont conservées dans des volumes Docker.
+
+## Démarrage sans Docker
+
+```bash
+# PostgreSQL : créer un utilisateur et une base "lavpro"
+createuser -P lavpro && createdb -O lavpro lavpro
+
+# 1. API (http://localhost:8000)
 cd backend
 python3.12 -m venv .venv && source .venv/bin/activate
 pip install -r requirements-dev.txt
-cp .env.example .env
-python -m app.jobs.seed_demo      # optionnel : données de démonstration
+cp .env.example .env              # LAVPRO_DATABASE_URL=postgresql+psycopg://...
+python -m app.jobs.seed_demo      # optionnel
 uvicorn app.main:app --reload
 
 # 2. Espace Pro (http://localhost:4200)
@@ -48,7 +74,8 @@ Les rappels intelligents s'exécutent via une tâche planifiée : `python -m app
 ## Tests
 
 ```bash
-cd backend && pytest          # parcours complets de l'API
+cd backend && pytest          # parcours complets de l'API, sur la base PostgreSQL lavpro_test
+                              # (ou LAVPRO_TEST_DATABASE_URL=postgresql+psycopg://...)
 cd web && npx ng build        # compilation Angular
 cd mobile && flutter analyze
 ```

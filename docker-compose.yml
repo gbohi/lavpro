@@ -1,0 +1,46 @@
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-lavpro}
+      POSTGRES_USER: ${POSTGRES_USER:-lavpro}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Définissez POSTGRES_PASSWORD dans .env}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  api:
+    build: ./backend
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      LAVPRO_DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-lavpro}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB:-lavpro}
+      LAVPRO_SECRET_KEY: ${LAVPRO_SECRET_KEY:?Définissez LAVPRO_SECRET_KEY dans .env}
+      LAVPRO_CORS_ORIGINS: ${LAVPRO_CORS_ORIGINS:-["http://localhost:8080"]}
+      LAVPRO_SUPERADMIN_EMAIL: ${LAVPRO_SUPERADMIN_EMAIL:-}
+      LAVPRO_SUPERADMIN_PASSWORD: ${LAVPRO_SUPERADMIN_PASSWORD:-}
+      LAVPRO_FCM_SERVER_KEY: ${LAVPRO_FCM_SERVER_KEY:-}
+      LAVPRO_UPLOAD_DIR: /data/uploads
+    volumes:
+      - uploads:/data/uploads
+    ports:
+      - "8000:8000"   # accès direct pour l'application mobile
+
+  web:
+    build: ./web
+    restart: unless-stopped
+    depends_on:
+      - api
+    ports:
+      - "8080:80"
+
+volumes:
+  pgdata:
+  uploads:

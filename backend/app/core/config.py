@@ -14,7 +14,7 @@ class Settings(BaseSettings):
 
     app_name: str = "Lavpro API"
     api_prefix: str = "/api/v1"
-    database_url: str = "sqlite:///./lavpro.db"
+    database_url: str = "postgresql+psycopg://lavpro:lavpro@localhost:5432/lavpro"
     secret_key: str = "dev-secret-change-me"
     algorithm: str = "HS256"
     access_token_expire_minutes: int = 60 * 24 * 7

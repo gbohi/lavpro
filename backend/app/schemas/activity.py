@@ -32,7 +32,7 @@ class AccountOut(ORM):
     next_reward_points: int | None = None
 
 
-class ClientLookupOut(BaseModel):
+class ClientLookupOut(ORM):
     user_id: int
     first_name: str
     last_name: str
@@ -148,7 +148,7 @@ class BookingOut(ORM):
     created_at: datetime
 
 
-class Slot(BaseModel):
+class Slot(ORM):
     start_at: datetime
     end_at: datetime
     available: int
@@ -201,7 +201,7 @@ class Suggestion(BaseModel):
     weather: dict | None = None
 
 
-class ClientSummary(BaseModel):
+class ClientSummary(ORM):
     user_id: int
     first_name: str
     last_name: str

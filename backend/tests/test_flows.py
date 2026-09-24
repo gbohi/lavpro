@@ -94,6 +94,8 @@ def test_booking_slots_and_capacity(client, center):
     s, v = center["services"][0], center["vehicles"][0]
     slots = client.get(f"{API}/centers/{cid}/slots", params={"day": day.isoformat(), "service_type_id": s["id"]}).json()
     assert slots and slots[0]["available"] == 1
+    # Les créneaux sont exposés en UTC explicite (sinon décalés sur les téléphones hors UTC)
+    assert slots[0]["start_at"].endswith(("Z", "+00:00"))
     body = {"center_id": cid, "service_type_id": s["id"], "vehicle_type_id": v["id"], "start_at": slots[0]["start_at"]}
     r = client.post(f"{API}/me/bookings", headers=auth(user["access_token"]), json=body)
     assert r.status_code == 201, r.text

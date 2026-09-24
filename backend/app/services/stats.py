@@ -66,7 +66,7 @@ def dashboard(db: Session, center: Center, start: datetime, end: datetime) -> di
     active_clients = len(visit_counts)
     loyal_clients = sum(1 for _, c in visit_counts if c >= center.loyal_min_visits)
     returning = db.scalar(select(func.count(func.distinct(Wash.user_id))).where(
-        Wash.center_id == center.id, Wash.user_id.in_(client_ids or [-1]), Wash.created_at < start)) or 0
+        Wash.center_id == center.id, Wash.user_id.in_(list(client_ids) or [-1]), Wash.created_at < start)) or 0
 
     new_clients = db.scalar(select(func.count(LoyaltyAccount.id)).where(
         LoyaltyAccount.center_id == center.id, LoyaltyAccount.created_at >= start,

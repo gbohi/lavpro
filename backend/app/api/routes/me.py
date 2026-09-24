@@ -54,7 +54,7 @@ router = APIRouter(prefix="/me", tags=["Espace client"])
 def accounts(user: CurrentUser, db: DB):
     out = []
     for acc in db.scalars(select(LoyaltyAccount).where(LoyaltyAccount.user_id == user.id)
-                          .order_by(LoyaltyAccount.last_visit_at.desc())):
+                          .order_by(LoyaltyAccount.last_visit_at.desc().nulls_last())):
         nxt = db.scalar(select(Reward).where(Reward.center_id == acc.center_id, Reward.is_active.is_(True),
                                              Reward.points_cost > acc.balance).order_by(Reward.points_cost))
         out.append(AccountOut(id=acc.id, center_id=acc.center_id, center_name=acc.center.name,
