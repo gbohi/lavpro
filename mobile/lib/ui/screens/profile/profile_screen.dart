@@ -1,11 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:lavpro_core/lavpro_core.dart';
 
-import '../../../core/responsive.dart';
-import '../../../core/theme.dart';
 import '../../../state/providers.dart';
-import '../../widgets/common.dart';
 
 class ProfileScreen extends ConsumerWidget {
   const ProfileScreen({super.key});
@@ -54,19 +52,17 @@ class ProfileScreen extends ConsumerWidget {
                 ),
                 if (user.isStaff) ...[
                   const SizedBox(height: 16),
-                  GradientCard(
-                    padding: const EdgeInsets.all(18),
-                    onTap: () => context.push('/staff'),
+                  AppCard(
+                    color: AppColors.primary.withValues(alpha: .06),
                     child: const Row(children: [
-                      Icon(Icons.qr_code_scanner_rounded, color: Colors.white, size: 32),
+                      IconBadge(Icons.storefront_rounded, gradient: AppColors.nightGradient),
                       SizedBox(width: 14),
                       Expanded(
-                        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                          Text('Mode gestionnaire', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w800, fontSize: 17)),
-                          Text('Scanner un client et valider un lavage', style: TextStyle(color: Colors.white70)),
-                        ]),
+                        child: Text(
+                          'Vous gérez un centre de lavage ? Validez les lavages et suivez votre activité avec l\'application Lavpro Business.',
+                          style: TextStyle(fontWeight: FontWeight.w600),
+                        ),
                       ),
-                      Icon(Icons.chevron_right_rounded, color: Colors.white),
                     ]),
                   ),
                 ],

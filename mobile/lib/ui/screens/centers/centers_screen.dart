@@ -6,13 +6,9 @@ import 'package:flutter_map/flutter_map.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:latlong2/latlong.dart';
+import 'package:lavpro_core/lavpro_core.dart';
 
-import '../../../core/format.dart';
-import '../../../core/responsive.dart';
-import '../../../core/theme.dart';
-import '../../../models/center.dart';
 import '../../../state/providers.dart';
-import '../../widgets/common.dart';
 
 class CentersScreen extends ConsumerStatefulWidget {
   const CentersScreen({super.key});

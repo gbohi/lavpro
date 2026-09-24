@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:lavpro_core/lavpro_core.dart';
 
-import '../../../core/theme.dart';
 
 class AuthScaffold extends StatelessWidget {
   const AuthScaffold({super.key, required this.title, required this.subtitle, required this.child});

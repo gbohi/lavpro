@@ -21,7 +21,6 @@ import 'ui/screens/profile/vehicles_screen.dart';
 import 'ui/screens/rewards/rewards_screen.dart';
 import 'ui/screens/shell.dart';
 import 'ui/screens/splash_screen.dart';
-import 'ui/screens/staff/staff_scan_screen.dart';
 
 /// Pont entre l'état d'authentification Riverpod et le rafraîchissement du routeur.
 class _AuthListenable extends ChangeNotifier {
@@ -73,7 +72,6 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(path: '/referral', builder: (_, _) => const ReferralScreen()),
       GoRoute(path: '/notifications', builder: (_, _) => const NotificationsScreen()),
       GoRoute(path: '/vehicles', builder: (_, _) => const VehiclesScreen()),
-      GoRoute(path: '/staff', builder: (_, _) => const StaffScanScreen()),
     ],
   );
 });

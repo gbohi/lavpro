@@ -5,15 +5,9 @@ import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:lavpro_core/lavpro_core.dart';
 
-import '../../../core/format.dart';
-import '../../../core/responsive.dart';
-import '../../../core/theme.dart';
-import '../../../models/center.dart';
-import '../../../models/loyalty.dart';
 import '../../../state/providers.dart';
-import '../../widgets/common.dart';
-import '../../widgets/icons.dart';
 import '../rewards/reward_tile.dart';
 
 const _days = ['Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi', 'Dimanche'];

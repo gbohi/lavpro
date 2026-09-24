@@ -1,0 +1,17 @@
+name: lavpro_core
+description: "Code partagé des applications Lavpro (client) et Lavpro Business : thème, client API, modèles, composants."
+publish_to: 'none'
+version: 1.0.0
+
+environment:
+  sdk: ^3.13.4
+
+dependencies:
+  flutter:
+    sdk: flutter
+  flutter_riverpod: ^3.4.3
+  dio: ^5.11.1
+  flutter_secure_storage: ^11.2.0
+  google_fonts: ^8.2.1
+  intl: ^0.20.3
+  flutter_animate: ^4.5.2

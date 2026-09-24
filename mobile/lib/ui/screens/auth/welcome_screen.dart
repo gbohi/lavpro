@@ -1,9 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:go_router/go_router.dart';
+import 'package:lavpro_core/lavpro_core.dart';
 
-import '../../../core/theme.dart';
-import '../../widgets/common.dart';
 
 class WelcomeScreen extends StatefulWidget {
   const WelcomeScreen({super.key});

@@ -2,12 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:geolocator/geolocator.dart';
+import 'package:lavpro_core/lavpro_core.dart';
 
-import '../core/api_client.dart';
 import '../data/lavpro_repository.dart';
-import '../models/center.dart';
-import '../models/loyalty.dart';
-import '../models/user.dart';
 
 final apiClientProvider = Provider<ApiClient>((ref) => ApiClient(const FlutterSecureStorage()));
 final repoProvider = Provider<LavproRepository>((ref) => LavproRepository(ref.watch(apiClientProvider)));

@@ -6,7 +6,9 @@ Programme de fidélité et plateforme de gestion pour les centres de lavage auto
 |---|---|---|
 | [`backend/`](backend) | Python 3.12 · FastAPI · SQLAlchemy 2 · PostgreSQL · Alembic | API REST (auth JWT, fidélité, réservations, rappels, statistiques) |
 | [`web/`](web) | Angular CLI 18.0.6 | Espace Pro : back-office des centres et administration de la plateforme |
-| [`mobile/`](mobile) | Flutter | Application client (et mode gestionnaire pour scanner depuis un téléphone) |
+| [`mobile/`](mobile) | Flutter | **Lavpro** : application des clients |
+| [`business/`](business) | Flutter | **Lavpro Business** : application des gérants et gestionnaires de centres |
+| [`packages/lavpro_core/`](packages/lavpro_core) | Dart | Code partagé des deux applications (thème, client API, modèles, composants) |
 
 ## Tout est paramétrable
 
@@ -18,6 +20,8 @@ Aucune donnée métier n'est codée en dur :
 ## Fonctionnalités
 
 **Clients (mobile)** : inscription unique avec QR code et code membre, soldes de points par centre, historique, récompenses et codes de retrait, centres les plus proches (liste et carte) avec affluence en temps réel, réservation de créneaux, suggestions selon la fréquence de visite et la météo (Open-Meteo), parrainage, Mode Écolo, notifications, thème clair/sombre, interface responsive (téléphone, tablette, desktop).
+
+**Gérants (Lavpro Business, mobile)** : tableau de bord du jour / 7 j / 30 j (lavages, chiffre d'affaires, clients, fidélité, heures d'affluence, point par laveur), réglage de la file d'attente visible en direct par les clients, scan du QR client ou code membre, validation du lavage (véhicule, service, laveur), client de passage, remise des récompenses, réservations du jour (accueillir, absent, annuler), historique des lavages du jour, multi-centres.
 
 **Centres (web)** : inscription du centre, équipe de gestionnaires (propriétaire / gestionnaire), laveurs (sans compte) avec suivi de qui a lavé quoi, validation d'un lavage par scan QR (caméra ou douchette) ou code membre, client de passage, remise des récompenses, file d'attente en direct, tableau de bord (lavages/jour, CA, services populaires, taux de fidélité, heures d'affluence, performance des laveurs), rapports par laveur avec commissions, export CSV.
 
@@ -61,8 +65,10 @@ uvicorn app.main:app --reload
 # 2. Espace Pro (http://localhost:4200)
 cd web && npm install && npm start
 
-# 3. Application mobile
+# 3. Applications mobiles (client et Business)
 cd mobile && flutter pub get
+flutter run --dart-define=API_URL=http://<ip-de-votre-machine>:8000/api/v1
+cd ../business && flutter pub get
 flutter run --dart-define=API_URL=http://<ip-de-votre-machine>:8000/api/v1
 ```
 
@@ -78,4 +84,5 @@ cd backend && pytest          # parcours complets de l'API, sur la base PostgreS
                               # (ou LAVPRO_TEST_DATABASE_URL=postgresql+psycopg://...)
 cd web && npx ng build        # compilation Angular
 cd mobile && flutter analyze
+cd business && flutter analyze
 ```

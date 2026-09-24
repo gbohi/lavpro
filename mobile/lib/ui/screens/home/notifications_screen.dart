@@ -1,11 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:lavpro_core/lavpro_core.dart';
 
-import '../../../core/format.dart';
-import '../../../core/responsive.dart';
-import '../../../core/theme.dart';
 import '../../../state/providers.dart';
-import '../../widgets/common.dart';
 
 class NotificationsScreen extends ConsumerStatefulWidget {
   const NotificationsScreen({super.key});

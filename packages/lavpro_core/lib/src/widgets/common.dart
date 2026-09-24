@@ -2,8 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../core/theme.dart';
-import '../../models/center.dart';
+import '../core/theme.dart';
+import '../models/center.dart';
 
 /// Carte avec dégradé et reflets, utilisée pour les éléments "héros".
 class GradientCard extends StatelessWidget {

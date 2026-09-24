@@ -2,13 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:lavpro_core/lavpro_core.dart';
 
-import '../../../core/format.dart';
-import '../../../core/responsive.dart';
-import '../../../core/theme.dart';
-import '../../../models/loyalty.dart';
 import '../../../state/providers.dart';
-import '../../widgets/common.dart';
 import 'reward_tile.dart';
 
 class RewardsScreen extends ConsumerWidget {

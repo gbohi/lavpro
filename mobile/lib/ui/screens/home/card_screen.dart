@@ -3,11 +3,9 @@ import 'package:flutter/services.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:qr_flutter/qr_flutter.dart';
+import 'package:lavpro_core/lavpro_core.dart';
 
-import '../../../core/format.dart';
-import '../../../core/theme.dart';
 import '../../../state/providers.dart';
-import '../../widgets/common.dart';
 
 /// Carte de fidélité : QR code unique à présenter au centre.
 class CardScreen extends ConsumerWidget {

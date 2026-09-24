@@ -1,9 +1,5 @@
-import '../core/api_client.dart';
-import '../models/center.dart';
-import '../models/json.dart';
-import '../models/loyalty.dart';
-import '../models/staff.dart';
-import '../models/user.dart';
+import 'package:lavpro_core/lavpro_core.dart';
+
 
 /// Accès à l'API REST Lavpro.
 class LavproRepository {
@@ -80,21 +76,4 @@ class LavproRepository {
   Future<void> saveVehicle(ClientVehicle v) =>
       v.id == 0 ? api.post('/me/vehicles', v.toJson()) : api.put('/me/vehicles/${v.id}', v.toJson());
   Future<void> deleteVehicle(int id) => api.delete('/me/vehicles/$id');
-
-  // ---- Mode gestionnaire -------------------------------------------------------
-  String _m(int centerId) => '/manage/centers/$centerId';
-  Future<ClientLookup> lookupClient(int centerId, String code) async =>
-      ClientLookup.fromJson(await api.get('${_m(centerId)}/clients/lookup', query: {'code': code}));
-  Future<List<ServiceType>> staffServices(int centerId) async =>
-      parseList(await api.get<List>('${_m(centerId)}/services'), ServiceType.fromJson);
-  Future<List<VehicleType>> staffVehicleTypes(int centerId) async =>
-      parseList(await api.get<List>('${_m(centerId)}/vehicle-types'), VehicleType.fromJson);
-  Future<List<PricingRule>> staffPricing(int centerId) async =>
-      parseList(await api.get<List>('${_m(centerId)}/pricing'), PricingRule.fromJson);
-  Future<List<Washer>> washers(int centerId) async =>
-      parseList(await api.get<List>('${_m(centerId)}/washers', query: {'active_only': true}), Washer.fromJson);
-  Future<WashRecord> validateWash(int centerId, Map<String, dynamic> body) async =>
-      WashRecord.fromJson(await api.post('${_m(centerId)}/washes', body));
-  Future<void> giveReward(int centerId, int redemptionId) =>
-      api.post('${_m(centerId)}/redemptions/$redemptionId/validate');
 }
