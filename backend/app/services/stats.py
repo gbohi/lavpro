@@ -39,7 +39,8 @@ def dashboard(db: Session, center: Center, start: datetime, end: datetime) -> di
     weekdays = [0] * 7
     by_service: dict[int, dict] = defaultdict(lambda: {"count": 0, "revenue": 0.0})
     by_vehicle: dict[int, int] = defaultdict(int)
-    by_washer: dict[int | None, dict] = defaultdict(lambda: {"count": 0, "revenue": 0.0})
+    by_washer: dict[int | None, dict] = defaultdict(lambda: {"count": 0, "revenue": 0.0, "offered": 0.0})
+    free = [w for w in washes if w.payment_method != "standard"]
     for w in washes:
         local = naive_utc_to_local(w.created_at, center.timezone)
         key = local.date().isoformat()
@@ -53,6 +54,8 @@ def dashboard(db: Session, center: Center, start: datetime, end: datetime) -> di
         by_vehicle[w.vehicle_type_id] += 1
         by_washer[w.washer_id]["count"] += 1
         by_washer[w.washer_id]["revenue"] += w.price
+        if w.payment_method != "standard":
+            by_washer[w.washer_id]["offered"] += w.discount
 
     services = {s.id: s.name for s in db.scalars(select(ServiceType).where(ServiceType.center_id == center.id))}
     vehicles = {v.id: v.name for v in db.scalars(select(VehicleType).where(VehicleType.center_id == center.id))}
@@ -79,7 +82,8 @@ def dashboard(db: Session, center: Center, start: datetime, end: datetime) -> di
                            PointTransaction.created_at < end).group_by(PointTransaction.type)).all()
     tx_map = {t: int(v or 0) for t, v in tx}
     points_issued = sum(v for t, v in tx_map.items() if v > 0 and t != TransactionType.refund)
-    points_redeemed = -tx_map.get(TransactionType.redeem, 0) - tx_map.get(TransactionType.refund, 0)
+    points_redeemed = (-tx_map.get(TransactionType.redeem, 0) - tx_map.get(TransactionType.wash_payment, 0)
+                       - tx_map.get(TransactionType.refund, 0))
 
     redemptions = db.execute(select(Redemption.status, func.count(Redemption.id)).where(
         Redemption.center_id == center.id, Redemption.created_at >= start, Redemption.created_at < end)
@@ -116,6 +120,11 @@ def dashboard(db: Session, center: Center, start: datetime, end: datetime) -> di
             "redemptions": {s.value: c for s, c in redemptions},
             "bookings": bookings,
             "water_saved_liters": round(sum(w.water_saved_liters for w in washes), 1),
+            # Lavages réglés par une récompense ou en points (montant encaissé nul)
+            "reward_washes": sum(1 for w in free if w.payment_method == "reward"),
+            "points_washes": sum(1 for w in free if w.payment_method == "points"),
+            "offered_value": round(sum(w.discount for w in free), 2),
+            "points_spent_on_washes": sum(w.points_spent for w in free),
             "queue": center.current_queue,
         },
         "washes_per_day": list(per_day.values()),
@@ -127,10 +136,12 @@ def dashboard(db: Session, center: Center, start: datetime, end: datetime) -> di
                             for k, v in by_service.items()], key=lambda x: -x["count"]),
         "vehicle_types": sorted([{"id": k, "name": vehicles.get(k, "?"), "count": v}
                                  for k, v in by_vehicle.items()], key=lambda x: -x["count"]),
+        # La commission du laveur porte aussi sur la valeur des lavages offerts (il a bien travaillé)
         "washers": sorted([{"id": k, "name": washers[k].full_name if k in washers else "Non attribué",
                             "count": v["count"], "revenue": round(v["revenue"], 2),
-                            "commission": round(v["revenue"] * (washers[k].commission_rate if k in washers else 0)
-                                                / 100, 2)}
+                            "offered_value": round(v["offered"], 2),
+                            "commission": round((v["revenue"] + v["offered"])
+                                                * (washers[k].commission_rate if k in washers else 0) / 100, 2)}
                            for k, v in by_washer.items()], key=lambda x: -x["count"]),
         "top_clients": [{"id": r[0], "name": f"{r[1]} {r[2]}".strip(), "washes": r[3],
                          "spent": round(r[4] or 0, 2)} for r in top_clients_rows],

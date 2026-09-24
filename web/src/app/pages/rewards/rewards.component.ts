@@ -3,6 +3,7 @@ import { Component, OnInit, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { ApiService } from '../../core/api.service';
 import { CenterApi } from '../../core/center-api.service';
+import { CenterStore } from '../../core/center-store.service';
 import { Reward } from '../../core/models';
 import { ToastService } from '../../core/toast.service';
 import { ConfirmService } from '../../shared/confirm.service';
@@ -22,7 +23,7 @@ type RewardForm = Omit<Reward, 'id' | 'center_id'> & { id?: number };
 
 function blank(): RewardForm {
   return { name: '', description: '', category: 'wash', image_url: null, points_cost: 100, stock: null, eco_min_liters_saved: null,
-    valid_from: null, valid_until: null, sort_order: 0, is_active: true };
+    valid_from: null, valid_until: null, sort_order: 0, is_active: true, service_type_id: null, vehicle_costs: [] };
 }
 
 @Component({
@@ -40,12 +41,19 @@ function blank(): RewardForm {
           <div class="card reward" [class.off]="!r.is_active">
             <div class="visual" [style.background-image]="r.image_url ? 'url(' + r.image_url + ')' : null">
               @if (!r.image_url) { <span class="icon">{{ icon(r.category) }}</span> }
-              <span class="cost">{{ r.points_cost | number }} pts</span>
+              <span class="cost">{{ r.vehicle_costs.length > 1 ? 'dès ' : '' }}{{ (r.min_cost ?? r.points_cost) | number }} pts</span>
               @if (r.eco_min_liters_saved) { <span class="eco"><span class="icon">eco</span>{{ r.eco_min_liters_saved }} L</span> }
             </div>
             <div class="body">
               <h3>{{ r.name }}</h3>
-              <p class="small muted">{{ r.description || catLabel(r.category) }}</p>
+              @if (r.service_type_id) {
+                <p class="wash-tag"><span class="icon">local_car_wash</span>Lavage offert · {{ r.service_name }}</p>
+                @if (r.vehicle_costs.length) {
+                  <p class="small muted">@for (c of r.vehicle_costs; track c.vehicle_type_id; let last = $last) { <span>{{ c.vehicle_type_name }} : {{ c.points_cost | number }} pts{{ last ? '' : ' · ' }}</span> }</p>
+                } @else { <p class="small muted">Tous types de véhicules</p> }
+              } @else {
+                <p class="small muted">{{ r.description || catLabel(r.category) }}</p>
+              }
               <div class="actions">
                 <span class="badge neutral">{{ r.stock === null ? 'Stock illimité' : r.stock + ' en stock' }}</span>
                 <span class="spacer"></span>
@@ -73,7 +81,28 @@ function blank(): RewardForm {
           </div>
           <div class="field full"><label>Nom *</label><input class="input" [(ngModel)]="f.name" placeholder="Ex : Lavage complet offert"></div>
           <div class="field full"><label>Description</label><textarea class="input" [(ngModel)]="f.description"></textarea></div>
-          <div class="field"><label>Coût en points *</label><input class="input" type="number" min="1" [(ngModel)]="f.points_cost"></div>
+          <div class="field full wash-box">
+            <label>Lavage offert</label>
+            <select class="input" [ngModel]="f.service_type_id" (ngModelChange)="f.service_type_id = $event; $event === null && (f.vehicle_costs = [])">
+              <option [ngValue]="null">Non : cadeau hors lavage (senteur, tapis…)</option>
+              @for (s of store.services(); track s.id) { <option [ngValue]="s.id">Oui : « {{ s.name }} » offert</option> }
+            </select>
+            <span class="hint">Un lavage offert est utilisé au moment de valider le lavage du client : il est enregistré à 0, sans points gagnés, et le laveur reste crédité.</span>
+            @if (f.service_type_id) {
+              <div class="costs">
+                <p class="small"><strong>Types de véhicules couverts</strong> — cochez-en pour fixer un coût par type. Aucun coché : tous les véhicules, au coût ci-dessous.</p>
+                @for (v of store.vehicleTypes(); track v.id) {
+                  <div class="cost-row">
+                    <label class="switch"><input type="checkbox" [checked]="costOf(f, v.id) !== null" (change)="toggleCost(f, v.id)"><span class="track"></span>{{ v.name }}</label>
+                    @if (costOf(f, v.id) !== null) {
+                      <input class="input" type="number" min="1" [ngModel]="costOf(f, v.id)" (ngModelChange)="setCost(f, v.id, $event)"><span class="muted small">pts</span>
+                    }
+                  </div>
+                }
+              </div>
+            }
+          </div>
+          <div class="field"><label>{{ f.vehicle_costs.length ? 'Coût minimum (calculé)' : 'Coût en points *' }}</label><input class="input" type="number" min="1" [(ngModel)]="f.points_cost" [disabled]="f.vehicle_costs.length > 0"></div>
           <div class="field"><label>Stock</label><input class="input" type="number" min="0" [(ngModel)]="f.stock" placeholder="Illimité"></div>
           <div class="field"><label>Valable du</label><input class="input" type="date" [ngModel]="f.valid_from?.slice(0,10)" (ngModelChange)="f.valid_from = $event || null"></div>
           <div class="field"><label>Au</label><input class="input" type="date" [ngModel]="f.valid_until?.slice(0,10)" (ngModelChange)="f.valid_until = $event || null"></div>
@@ -107,6 +136,10 @@ function blank(): RewardForm {
     .body { padding: 16px 18px; }
     .actions { display: flex; align-items: center; gap: 6px; margin-top: 12px; }
     .thumb { width: 64px; height: 64px; object-fit: cover; border-radius: 10px; }
+    .wash-tag { display: flex; align-items: center; gap: 4px; font-size: 12px; font-weight: 700; color: var(--primary); .icon { font-size: 16px; } }
+    .wash-box { padding: 14px; border-radius: 14px; background: var(--primary-soft); }
+    .costs { display: grid; gap: 8px; margin-top: 8px; }
+    .cost-row { display: flex; align-items: center; gap: 10px; min-height: 40px; .switch { flex: 1; } .input { width: 110px; height: 36px; } }
   `],
 })
 export class RewardsComponent implements OnInit {
@@ -114,6 +147,7 @@ export class RewardsComponent implements OnInit {
   private root = inject(ApiService);
   private toast = inject(ToastService);
   private confirm = inject(ConfirmService);
+  store = inject(CenterStore);
   categories = REWARD_CATEGORIES;
   rewards = signal<Reward[]>([]);
   form = signal<RewardForm | null>(null);
@@ -123,12 +157,32 @@ export class RewardsComponent implements OnInit {
   icon(c: string): string { return this.categories.find(x => x.value === c)?.icon ?? 'redeem'; }
   catLabel(c: string): string { return this.categories.find(x => x.value === c)?.label ?? c; }
 
-  edit(r?: Reward): void { this.form.set(r ? { ...r } : blank()); }
+  edit(r?: Reward): void {
+    this.form.set(r ? { ...r, vehicle_costs: r.vehicle_costs.map(c => ({ vehicle_type_id: c.vehicle_type_id, points_cost: c.points_cost })) } : blank());
+  }
+
+  costOf(f: RewardForm, vehicleId: number): number | null {
+    return f.vehicle_costs.find(c => c.vehicle_type_id === vehicleId)?.points_cost ?? null;
+  }
+  toggleCost(f: RewardForm, vehicleId: number): void {
+    f.vehicle_costs = this.costOf(f, vehicleId) === null
+      ? [...f.vehicle_costs, { vehicle_type_id: vehicleId, points_cost: f.points_cost || 100 }]
+      : f.vehicle_costs.filter(c => c.vehicle_type_id !== vehicleId);
+    this.syncMin(f);
+  }
+  setCost(f: RewardForm, vehicleId: number, value: number): void {
+    f.vehicle_costs = f.vehicle_costs.map(c => c.vehicle_type_id === vehicleId ? { ...c, points_cost: Number(value) } : c);
+    this.syncMin(f);
+  }
+  private syncMin(f: RewardForm): void {
+    if (f.vehicle_costs.length) f.points_cost = Math.min(...f.vehicle_costs.map(c => c.points_cost));
+    this.form.set({ ...f });
+  }
 
   save(): void {
     const f = this.form();
     if (!f) return;
-    const { id, ...body } = f;
+    const { id, service_name, is_wash, min_cost, ...body } = f;
     const req = id ? this.api.patch<Reward>(`/rewards/${id}`, body) : this.api.post<Reward>('/rewards', body);
     req.subscribe(() => { this.toast.success('Récompense enregistrée'); this.form.set(null); this.load(); });
   }

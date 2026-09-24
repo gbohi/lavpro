@@ -102,7 +102,12 @@ class _PendingRedemption extends ConsumerWidget {
             Expanded(
               child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                 Text(r.rewardName ?? '', style: const TextStyle(color: Colors.white, fontSize: 17, fontWeight: FontWeight.w800)),
-                Text(r.centerName ?? '', style: TextStyle(color: Colors.white.withValues(alpha: .85))),
+                Text(
+                  r.isWash
+                      ? '${r.centerName} · ${r.serviceName}${r.vehicleTypeName != null ? ' · ${r.vehicleTypeName}' : ''}\nPrésentez votre carte lors du lavage'
+                      : r.centerName ?? '',
+                  style: TextStyle(color: Colors.white.withValues(alpha: .85)),
+                ),
                 const SizedBox(height: 10),
                 GestureDetector(
                   onTap: () {

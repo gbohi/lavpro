@@ -11,6 +11,7 @@ from app.models import (
     BookingStatus,
     Center,
     LoyaltyAccount,
+    PaymentMethod,
     PointTransaction,
     PricingRule,
     Promotion,
@@ -57,7 +58,7 @@ def add_points(db: Session, account: LoyaltyAccount, points: int, type_: Transac
     account.balance += points
     if points > 0 and type_ != TransactionType.refund:
         account.total_earned += points
-    elif points < 0 and type_ == TransactionType.redeem:
+    elif points < 0 and type_ in (TransactionType.redeem, TransactionType.wash_payment):
         account.total_spent += -points
     elif type_ == TransactionType.refund:
         account.total_spent -= points
@@ -131,7 +132,17 @@ def _apply_referral(db: Session, user: User, center: Center, account: LoyaltyAcc
 
 def record_wash(db: Session, center: Center, *, service_type_id: int, vehicle_type_id: int, user: User | None,
                 washer_id: int | None, validated_by: User, booking_id: int | None = None, plate: str | None = None,
-                note: str | None = None, price_override: float | None = None) -> Wash:
+                note: str | None = None, price_override: float | None = None,
+                payment: PaymentMethod = PaymentMethod.standard, redemption_id: int | None = None) -> Wash:
+    """Enregistre un lavage.
+
+    Modes de règlement :
+    - standard : payé normalement, le client gagne des points (promotions comprises) ;
+    - reward : réglé par une récompense « lavage offert » déjà échangée par le client ;
+    - points : réglé directement en points au comptoir, au prix en points fixé dans la grille.
+    Dans les deux derniers cas le montant encaissé est 0 (valeur offerte dans `discount`) et
+    aucun point n'est gagné.
+    """
     service = db.get(ServiceType, service_type_id)
     vehicle = db.get(VehicleType, vehicle_type_id)
     if service is None or service.center_id != center.id:
@@ -142,61 +153,109 @@ def record_wash(db: Session, center: Center, *, service_type_id: int, vehicle_ty
         washer = db.get(Washer, washer_id)
         if washer is None or washer.center_id != center.id:
             raise HTTPException(404, "Laveur introuvable")
+
+    booking = None
+    if booking_id is not None:
+        booking = db.get(Booking, booking_id)
+        if booking is None or booking.center_id != center.id:
+            raise HTTPException(404, "Réservation introuvable")
+        if user is None:
+            user = booking.user
+
     rule = db.scalar(select(PricingRule).where(PricingRule.service_type_id == service.id,
                                                PricingRule.vehicle_type_id == vehicle.id,
                                                PricingRule.is_active.is_(True)))
     base_price = rule.price if rule else 0.0
     base_points = rule.points if rule else 0
+    value = price_override if price_override is not None else base_price
 
     account = None
     if user is not None:
         account = db.scalar(select(LoyaltyAccount).where(LoyaltyAccount.user_id == user.id,
                                                          LoyaltyAccount.center_id == center.id))
 
-    points = float(base_points)
-    discount_pct = 0.0
+    redemption: Redemption | None = None
+    points_spent = 0
     applied_promo: Promotion | None = None
-    for promo in active_promotions(db, center.id, service.id, vehicle.id):
-        if not promotion_applies(db, promo, user, center, account):
-            continue
-        candidate = base_points * promo.points_multiplier + promo.bonus_points
-        if candidate > points or (applied_promo is None and promo.discount_percent > 0):
-            points = max(points, candidate)
-            applied_promo = promo
-        discount_pct = max(discount_pct, promo.discount_percent)
+    if payment != PaymentMethod.standard and user is None:
+        raise HTTPException(400, "Un client identifié est nécessaire pour régler en points ou avec une récompense")
 
-    price = price_override if price_override is not None else base_price
-    discount = round(price * discount_pct / 100, 2)
+    if payment == PaymentMethod.reward:
+        redemption = db.get(Redemption, redemption_id) if redemption_id else None
+        if redemption is None or redemption.center_id != center.id or redemption.user_id != user.id:
+            raise HTTPException(404, "Récompense introuvable pour ce client")
+        if redemption.status != RedemptionStatus.pending:
+            raise HTTPException(400, "Cette récompense a déjà été utilisée ou annulée")
+        reward = redemption.reward
+        if not reward.is_wash:
+            raise HTTPException(400, "Cette récompense n'est pas un lavage offert")
+        if reward.service_type_id != service.id:
+            raise HTTPException(400, f"Cette récompense offre le service « {reward.service_type.name} »")
+        allowed = (redemption.vehicle_type_id == vehicle.id if redemption.vehicle_type_id is not None
+                   else reward.cost_for(vehicle.id) is not None)
+        if not allowed:
+            raise HTTPException(400, f"Cette récompense ne couvre pas le type de véhicule « {vehicle.name} »")
+        price, discount, points_earned = 0.0, value, 0
+    elif payment == PaymentMethod.points:
+        if not center.points_payment_enabled:
+            raise HTTPException(400, "Le paiement en points n'est pas activé dans ce centre")
+        if rule is None or not rule.points_price:
+            raise HTTPException(400, "Ce lavage n'est pas payable en points")
+        points_spent = rule.points_price
+        balance = account.balance if account else 0
+        if balance < points_spent:
+            raise HTTPException(400, f"Solde insuffisant : {points_spent} points requis, {balance} disponibles")
+        price, discount, points_earned = 0.0, value, 0
+    else:
+        points = float(base_points)
+        discount_pct = 0.0
+        for promo in active_promotions(db, center.id, service.id, vehicle.id):
+            if not promotion_applies(db, promo, user, center, account):
+                continue
+            candidate = base_points * promo.points_multiplier + promo.bonus_points
+            if candidate > points or (applied_promo is None and promo.discount_percent > 0):
+                points = max(points, candidate)
+                applied_promo = promo
+            discount_pct = max(discount_pct, promo.discount_percent)
+        discount = round(value * discount_pct / 100, 2)
+        price = value - discount
+        points_earned = int(round(points)) if user else 0
+
     water_saved = max(0.0, vehicle.eco_baseline_liters - service.water_used_liters)
-
-    if booking_id is not None:
-        booking = db.get(Booking, booking_id)
-        if booking is None or booking.center_id != center.id:
-            raise HTTPException(404, "Réservation introuvable")
+    if booking is not None:
         booking.status = BookingStatus.completed
-        if user is None:
-            user = booking.user
 
     wash = Wash(center_id=center.id, user_id=user.id if user else None, service_type_id=service.id,
                 vehicle_type_id=vehicle.id, washer_id=washer_id, validated_by_id=validated_by.id,
                 booking_id=booking_id, promotion_id=applied_promo.id if applied_promo else None, plate=plate,
-                price=price - discount, discount=discount, points_earned=int(round(points)) if user else 0,
-                water_saved_liters=water_saved if user else 0, note=note)
+                price=price, discount=discount, points_earned=points_earned, payment_method=payment.value,
+                points_spent=points_spent, water_saved_liters=water_saved if user else 0, note=note)
     db.add(wash)
     db.flush()
 
     if user is not None:
         account = account or get_or_create_account(db, user, center)
-        if wash.points_earned:
-            add_points(db, account, wash.points_earned, TransactionType.earn,
-                       note=f"{service.name} · {vehicle.name}", wash_id=wash.id, created_by_id=validated_by.id)
+        label = f"{service.name} · {vehicle.name}"
+        if payment == PaymentMethod.points:
+            add_points(db, account, -points_spent, TransactionType.wash_payment, note=f"Lavage payé en points · {label}",
+                       wash_id=wash.id, created_by_id=validated_by.id)
+            message = f"Votre {service.name.lower()} chez {center.name} a été réglé avec {points_spent} points."
+        elif payment == PaymentMethod.reward:
+            redemption.status = RedemptionStatus.used
+            redemption.used_at = utcnow()
+            redemption.validated_by_id = validated_by.id
+            redemption.wash_id = wash.id
+            message = f"Votre récompense « {redemption.reward.name} » a été utilisée chez {center.name}. Bonne route !"
+        else:
+            if wash.points_earned:
+                add_points(db, account, wash.points_earned, TransactionType.earn, note=label, wash_id=wash.id,
+                           created_by_id=validated_by.id)
+            message = f"Votre {service.name.lower()} chez {center.name} vous rapporte {wash.points_earned} points."
         account.visits += 1
         account.last_visit_at = wash.created_at
         _apply_referral(db, user, center, account)
-        notify(db, user, "Merci pour votre visite ✨",
-               f"Votre {service.name.lower()} chez {center.name} vous rapporte {wash.points_earned} points. "
-               f"Solde : {account.balance} pts.", type_="wash", center_id=center.id,
-               data={"wash_id": wash.id, "points": wash.points_earned, "balance": account.balance})
+        notify(db, user, "Merci pour votre visite ✨", f"{message} Solde : {account.balance} pts.", type_="wash",
+               center_id=center.id, data={"wash_id": wash.id, "points": wash.points_earned, "balance": account.balance})
     if center.current_queue > 0:
         center.current_queue -= 1
         center.queue_updated_at = utcnow()
@@ -208,7 +267,8 @@ def eco_saved_liters(db: Session, user_id: int) -> float:
                            .where(Wash.user_id == user_id)) or 0)
 
 
-def reward_lock_reason(db: Session, reward: Reward, user: User | None, balance: int) -> str | None:
+def reward_lock_reason(db: Session, reward: Reward, user: User | None, balance: int,
+                       vehicle_type_id: int | None = None) -> str | None:
     now = utcnow()
     if not reward.is_active:
         return "Offre indisponible"
@@ -222,26 +282,37 @@ def reward_lock_reason(db: Session, reward: Reward, user: User | None, balance: 
         saved = eco_saved_liters(db, user.id)
         if saved < reward.eco_min_liters_saved:
             return f"Mode Écolo : économisez {reward.eco_min_liters_saved - saved:.0f} L de plus"
-    if balance < reward.points_cost:
-        return f"Encore {reward.points_cost - balance} points"
+    cost = reward.cost_for(vehicle_type_id) if vehicle_type_id is not None else reward.min_cost
+    if cost is None:
+        return "Non disponible pour ce type de véhicule"
+    if balance < cost:
+        return f"Encore {cost - balance} points"
     return None
 
 
-def redeem_reward(db: Session, user: User, reward: Reward) -> Redemption:
+def redeem_reward(db: Session, user: User, reward: Reward, vehicle_type_id: int | None = None) -> Redemption:
     center = db.get(Center, reward.center_id)
+    if reward.vehicle_costs and vehicle_type_id is None:
+        raise HTTPException(400, "Choisissez le type de véhicule pour ce lavage offert")
+    if vehicle_type_id is not None:
+        vehicle = db.get(VehicleType, vehicle_type_id)
+        if vehicle is None or vehicle.center_id != center.id:
+            raise HTTPException(404, "Type de véhicule introuvable")
+        if not reward.is_wash:
+            vehicle_type_id = None
     account = get_or_create_account(db, user, center)
-    reason = reward_lock_reason(db, reward, user, account.balance)
+    reason = reward_lock_reason(db, reward, user, account.balance, vehicle_type_id)
     if reason:
         raise HTTPException(400, reason)
+    cost = reward.cost_for(vehicle_type_id) if vehicle_type_id is not None else reward.points_cost
     code = random_code(8)
     while db.scalar(select(Redemption.id).where(Redemption.code == code)):
         code = random_code(8)
-    redemption = Redemption(center_id=center.id, user_id=user.id, reward_id=reward.id, points=reward.points_cost,
-                            code=code, status=RedemptionStatus.pending)
+    redemption = Redemption(center_id=center.id, user_id=user.id, reward_id=reward.id, points=cost, code=code,
+                            vehicle_type_id=vehicle_type_id, status=RedemptionStatus.pending)
     db.add(redemption)
     db.flush()
-    add_points(db, account, -reward.points_cost, TransactionType.redeem, note=reward.name,
-               redemption_id=redemption.id)
+    add_points(db, account, -cost, TransactionType.redeem, note=reward.name, redemption_id=redemption.id)
     if reward.stock is not None:
         reward.stock -= 1
     return redemption

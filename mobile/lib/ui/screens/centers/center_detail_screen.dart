@@ -131,7 +131,13 @@ class _CenterDetailScreenState extends ConsumerState<CenterDetailScreen> {
                       for (final p in cat.promotions) _PromoCard(p),
                     ],
                     const SectionHeader('Services & points'),
-                    _Pricing(cat: cat, currency: c.currency, vehicleId: _vehicleId ?? cat.vehicleTypes.firstOrNull?.id,
+                    if (c.pointsPaymentEnabled && cat.pricing.any((r) => r.pointsPrice != null))
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: 12),
+                        child: Text('💳 Ce centre accepte le paiement de vos lavages en points.',
+                            style: TextStyle(color: context.muted, fontWeight: FontWeight.w600)),
+                      ),
+                    _Pricing(cat: cat, currency: c.currency, pointsPayment: c.pointsPaymentEnabled, vehicleId: _vehicleId ?? cat.vehicleTypes.firstOrNull?.id,
                         onVehicle: (id) => setState(() => _vehicleId = id)),
                   ]),
                   orElse: () => const SkeletonList(),
@@ -268,9 +274,11 @@ class _PromoCard extends StatelessWidget {
 }
 
 class _Pricing extends StatelessWidget {
-  const _Pricing({required this.cat, required this.currency, required this.vehicleId, required this.onVehicle});
+  const _Pricing({required this.cat, required this.currency, required this.vehicleId, required this.onVehicle,
+      this.pointsPayment = false});
   final Catalog cat;
   final String currency;
+  final bool pointsPayment;
   final int? vehicleId;
   final ValueChanged<int> onVehicle;
 
@@ -316,6 +324,8 @@ class _Pricing extends StatelessWidget {
                   else
                     Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
                       Text(fmtMoney(r.price, currency), style: const TextStyle(fontWeight: FontWeight.w800)),
+                      if (pointsPayment && r.pointsPrice != null)
+                        Text('ou ${fmtNum(r.pointsPrice!)} pts', style: const TextStyle(color: AppColors.violet, fontWeight: FontWeight.w700, fontSize: 12)),
                       Pill('+${r.points} pts', color: AppColors.eco),
                     ]),
                 ]),

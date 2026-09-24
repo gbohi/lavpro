@@ -23,6 +23,7 @@ from app.models import (
     Redemption,
     RedemptionStatus,
     Reward,
+    RewardVehicleCost,
     ServiceType,
     TransactionType,
     User,
@@ -86,6 +87,8 @@ from app.services.occupancy import compute_occupancy
 from app.services.timeutils import local_now, local_to_naive_utc, to_naive_utc
 
 router = APIRouter(prefix="/manage/centers/{center_id}", tags=["Back-office centre"])
+
+PAYMENT_LABELS = {"standard": "Payé", "reward": "Récompense (lavage offert)", "points": "Payé en points"}
 
 
 def _own(obj, ctx, label: str):
@@ -308,6 +311,7 @@ def save_pricing(body: PricingBulkIn, ctx: Ctx, db: DB):
         current = existing.get((rule.service_type_id, rule.vehicle_type_id))
         if current:
             current.price, current.points, current.is_active = rule.price, rule.points, rule.is_active
+            current.points_price = rule.points_price
         else:
             db.add(PricingRule(center_id=ctx.center.id, **rule.model_dump()))
     db.commit()
@@ -321,19 +325,46 @@ def list_rewards(ctx: Ctx, db: DB):
                       .order_by(Reward.sort_order, Reward.points_cost)).all()
 
 
+def _apply_reward(db, ctx, reward: Reward, data: dict) -> None:
+    """Applique les champs d'une récompense, y compris le service offert et les coûts par véhicule."""
+    costs = data.pop("vehicle_costs", None)
+    if data.get("service_type_id") is not None:
+        _own(db.get(ServiceType, data["service_type_id"]), ctx, "Service")
+    for k, v in data.items():
+        setattr(reward, k, v)
+    if reward.service_type_id is None:
+        costs = []  # les coûts par véhicule ne concernent que les lavages offerts
+    if costs is not None:
+        seen = set()
+        reward.vehicle_costs.clear()
+        db.flush()
+        for c in costs:
+            vid = c["vehicle_type_id"]
+            _own(db.get(VehicleType, vid), ctx, "Type de véhicule")
+            if vid in seen:
+                raise HTTPException(400, "Type de véhicule en double")
+            seen.add(vid)
+            reward.vehicle_costs.append(RewardVehicleCost(vehicle_type_id=vid, points_cost=c["points_cost"]))
+        if reward.vehicle_costs:
+            reward.points_cost = min(c.points_cost for c in reward.vehicle_costs)
+
+
 @router.post("/rewards", response_model=RewardOut, status_code=201)
 def add_reward(body: RewardIn, ctx: Ctx, db: DB):
-    r = Reward(center_id=ctx.center.id, **body.model_dump())
+    r = Reward(center_id=ctx.center.id)
     db.add(r)
+    _apply_reward(db, ctx, r, body.model_dump())
     db.commit()
+    db.refresh(r)
     return r
 
 
 @router.patch("/rewards/{item_id}", response_model=RewardOut)
 def update_reward(item_id: int, body: RewardUpdate, ctx: Ctx, db: DB):
     r = _own(db.get(Reward, item_id), ctx, "Récompense")
-    apply_patch(r, body)
+    _apply_reward(db, ctx, r, body.model_dump(exclude_unset=True))
     db.commit()
+    db.refresh(r)
     return r
 
 
@@ -487,7 +518,8 @@ def create_wash(body: WashIn, ctx: Ctx, db: DB):
             raise HTTPException(404, "Client introuvable")
     wash = record_wash(db, ctx.center, service_type_id=body.service_type_id, vehicle_type_id=body.vehicle_type_id,
                        user=user, washer_id=body.washer_id, validated_by=ctx.user, booking_id=body.booking_id,
-                       plate=body.plate, note=body.note, price_override=body.price_override)
+                       plate=body.plate, note=body.note, price_override=body.price_override,
+                       payment=body.payment_method, redemption_id=body.redemption_id)
     db.commit()
     db.refresh(wash)
     return wash_out(wash)
@@ -534,12 +566,14 @@ def export_washes(ctx: Ctx, db: DB, date_from: date | None = None, date_to: date
     buf = io.StringIO()
     writer = csv.writer(buf, delimiter=";")
     writer.writerow(["Date", "Client", "Service", "Véhicule", "Immatriculation", "Laveur", "Validé par",
-                     f"Prix ({ctx.center.currency})", "Remise", "Points"])
+                     f"Prix ({ctx.center.currency})", "Remise / valeur offerte", "Règlement", "Points gagnés",
+                     "Points dépensés"])
     for w in db.scalars(_washes_query(ctx, start, end, washer_id, None)):
         o = wash_out(w)
         writer.writerow([w.created_at.isoformat(), o.client_name or "Client de passage", o.service_name,
                          o.vehicle_type_name, w.plate or "", o.washer_name or "", o.validated_by_name or "",
-                         w.price, w.discount, w.points_earned])
+                         w.price, w.discount, PAYMENT_LABELS.get(w.payment_method, w.payment_method),
+                         w.points_earned, w.points_spent])
     return StreamingResponse(iter(["﻿" + buf.getvalue()]), media_type="text/csv",
                              headers={"Content-Disposition": "attachment; filename=lavages.csv"})
 
@@ -566,6 +600,9 @@ def validate_redemption(key: str, ctx: Ctx, db: DB):
     r = _find_redemption(db, ctx, key)
     if r.status != RedemptionStatus.pending:
         raise HTTPException(400, "Récompense déjà remise ou annulée")
+    if r.reward.is_wash:
+        raise HTTPException(409, "C'est un lavage offert : scannez le client puis choisissez « Payer avec la récompense » "
+                                 "lors de la validation du lavage.")
     r.status = RedemptionStatus.used
     r.used_at = utcnow()
     r.validated_by_id = ctx.user.id

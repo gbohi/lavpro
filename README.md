@@ -19,6 +19,14 @@ Aucune donnée métier n'est codée en dur :
 
 ## Fonctionnalités
 
+**Utiliser ses points pour un lavage** : deux possibilités, au choix du centre.
+- *Récompense « lavage offert »* : liée à un service, éventuellement limitée à certains types de véhicules avec un
+  coût en points propre à chacun. Le client l'échange dans l'app, puis le gestionnaire choisit « Payer avec la
+  récompense » en validant le lavage : lavage enregistré à 0 (valeur offerte tracée), aucun point gagné, laveur
+  crédité, récompense reliée au lavage.
+- *Paiement direct en points au comptoir* (à activer dans les paramètres) : prix en points fixé pour chaque service
+  et véhicule dans « Prix & points » ; le solde est débité à la validation.
+
 **Clients (mobile)** : inscription unique avec QR code et code membre, soldes de points par centre, historique, récompenses et codes de retrait, centres les plus proches (liste et carte) avec affluence en temps réel, réservation de créneaux, suggestions selon la fréquence de visite et la météo (Open-Meteo), parrainage, Mode Écolo, notifications, thème clair/sombre, interface responsive (téléphone, tablette, desktop).
 
 **Gérants (Lavpro Business, mobile)** : tableau de bord du jour / 7 j / 30 j (lavages, chiffre d'affaires, clients, fidélité, heures d'affluence, point par laveur), réglage de la file d'attente visible en direct par les clients, scan du QR client ou code membre, validation du lavage (véhicule, service, laveur), client de passage, remise des récompenses, réservations du jour (accueillir, absent, annuler), historique des lavages du jour, multi-centres.

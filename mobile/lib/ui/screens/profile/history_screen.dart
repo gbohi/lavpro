@@ -49,7 +49,13 @@ class _Washes extends ConsumerWidget {
                                 ]),
                               ),
                               Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
-                                Text('+${w.points}', style: const TextStyle(color: AppColors.eco, fontWeight: FontWeight.w800, fontSize: 16)),
+                                switch (w.paymentMethod) {
+                                  'reward' => const Pill('Offert', icon: Icons.redeem_rounded, color: AppColors.eco),
+                                  'points' => Text('−${w.pointsSpent} pts',
+                                      style: const TextStyle(color: AppColors.violet, fontWeight: FontWeight.w800, fontSize: 16)),
+                                  _ => Text('+${w.points}',
+                                      style: const TextStyle(color: AppColors.eco, fontWeight: FontWeight.w800, fontSize: 16)),
+                                },
                                 if (w.waterSaved > 0)
                                   Text('💧 ${w.waterSaved.round()} L', style: TextStyle(color: context.muted, fontSize: 11)),
                               ]),

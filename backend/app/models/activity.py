@@ -67,6 +67,9 @@ class Wash(Base):
     price: Mapped[float] = mapped_column(Float, default=0)
     discount: Mapped[float] = mapped_column(Float, default=0)
     points_earned: Mapped[int] = mapped_column(Integer, default=0)
+    # Mode de règlement : standard (payé), reward (récompense « lavage offert »), points (payé en points)
+    payment_method: Mapped[str] = mapped_column(String(16), default="standard", server_default="standard")
+    points_spent: Mapped[int] = mapped_column(Integer, default=0, server_default="0")
     water_saved_liters: Mapped[float] = mapped_column(Float, default=0)
     note: Mapped[str | None] = mapped_column(Text)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow, index=True)
@@ -86,6 +89,9 @@ class Redemption(Base):
     center_id: Mapped[int] = mapped_column(ForeignKey("centers.id", ondelete="CASCADE"), index=True)
     user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
     reward_id: Mapped[int] = mapped_column(ForeignKey("rewards.id", ondelete="CASCADE"))
+    # Pour un lavage offert limité par type de véhicule : véhicule choisi par le client
+    vehicle_type_id: Mapped[int | None] = mapped_column(ForeignKey("vehicle_types.id", ondelete="SET NULL"))
+    wash_id: Mapped[int | None] = mapped_column(ForeignKey("washes.id", ondelete="SET NULL"))
     points: Mapped[int] = mapped_column(Integer)
     code: Mapped[str] = mapped_column(String(16), unique=True, index=True)
     status: Mapped[RedemptionStatus] = mapped_column(Enum(RedemptionStatus), default=RedemptionStatus.pending)
@@ -96,6 +102,7 @@ class Redemption(Base):
     reward: Mapped[Reward] = relationship()
     center: Mapped[Center] = relationship()
     user: Mapped[User] = relationship(foreign_keys=[user_id])
+    vehicle_type: Mapped[VehicleType | None] = relationship()
 
 
 class PointTransaction(Base):

@@ -61,6 +61,7 @@ class PricingRuleIn(BaseModel):
     vehicle_type_id: int
     price: float = Field(ge=0)
     points: int = Field(ge=0)
+    points_price: int | None = Field(default=None, ge=1, description="Prix en points pour payer ce lavage au comptoir")
     is_active: bool = True
 
 
@@ -72,12 +73,24 @@ class PricingBulkIn(BaseModel):
     rules: list[PricingRuleIn]
 
 
+class RewardVehicleCostIn(BaseModel):
+    vehicle_type_id: int
+    points_cost: int = Field(ge=1)
+
+
+class RewardVehicleCostOut(ORM, RewardVehicleCostIn):
+    vehicle_type_name: str | None = None
+
+
 class RewardIn(BaseModel):
     name: str
     description: str | None = None
     category: str = "gift"
     image_url: str | None = None
     points_cost: int = Field(ge=1)
+    # Lavage offert : service concerné et, optionnellement, coût par type de véhicule
+    service_type_id: int | None = None
+    vehicle_costs: list[RewardVehicleCostIn] = []
     stock: int | None = Field(default=None, ge=0)
     eco_min_liters_saved: float | None = Field(default=None, ge=0)
     valid_from: datetime | None = None
@@ -92,6 +105,8 @@ class RewardUpdate(BaseModel):
     category: str | None = None
     image_url: str | None = None
     points_cost: int | None = Field(default=None, ge=1)
+    service_type_id: int | None = None
+    vehicle_costs: list[RewardVehicleCostIn] | None = None
     stock: int | None = Field(default=None, ge=0)
     eco_min_liters_saved: float | None = Field(default=None, ge=0)
     valid_from: datetime | None = None
@@ -103,6 +118,10 @@ class RewardUpdate(BaseModel):
 class RewardOut(ORM, RewardIn):
     id: int
     center_id: int
+    vehicle_costs: list[RewardVehicleCostOut] = []
+    service_name: str | None = None
+    is_wash: bool = False
+    min_cost: int = 0
 
 
 class RewardForClient(RewardOut):

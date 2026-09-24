@@ -48,6 +48,8 @@ class PricingRule(Base):
     vehicle_type_id: Mapped[int] = mapped_column(ForeignKey("vehicle_types.id", ondelete="CASCADE"))
     price: Mapped[float] = mapped_column(Float, default=0)
     points: Mapped[int] = mapped_column(Integer, default=0)
+    # Prix en points pour payer ce lavage directement au comptoir (None = non payable en points)
+    points_price: Mapped[int | None] = mapped_column(Integer)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
 
     service_type: Mapped[ServiceType] = relationship()
@@ -64,6 +66,8 @@ class Reward(Base):
     category: Mapped[str] = mapped_column(String(50), default="gift")
     image_url: Mapped[str | None] = mapped_column(String(500))
     points_cost: Mapped[int] = mapped_column(Integer)
+    # Récompense « lavage offert » : service concerné (None = cadeau hors lavage)
+    service_type_id: Mapped[int | None] = mapped_column(ForeignKey("service_types.id", ondelete="SET NULL"))
     stock: Mapped[int | None] = mapped_column(Integer)
     # Offres "Mode Écolo" : débloquées à partir d'un volume d'eau économisé
     eco_min_liters_saved: Mapped[float | None] = mapped_column(Float)
@@ -72,6 +76,49 @@ class Reward(Base):
     sort_order: Mapped[int] = mapped_column(Integer, default=0)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
+
+    service_type: Mapped[ServiceType | None] = relationship()
+    vehicle_costs: Mapped[list["RewardVehicleCost"]] = relationship(
+        cascade="all, delete-orphan", order_by="RewardVehicleCost.id")
+
+    @property
+    def service_name(self) -> str | None:
+        return self.service_type.name if self.service_type else None
+
+    @property
+    def is_wash(self) -> bool:
+        return self.service_type_id is not None
+
+    def cost_for(self, vehicle_type_id: int | None) -> int | None:
+        """Coût en points pour ce type de véhicule (None si la récompense ne le couvre pas)."""
+        if not self.vehicle_costs:
+            return self.points_cost
+        for c in self.vehicle_costs:
+            if c.vehicle_type_id == vehicle_type_id:
+                return c.points_cost
+        return None
+
+    @property
+    def min_cost(self) -> int:
+        return min((c.points_cost for c in self.vehicle_costs), default=self.points_cost)
+
+
+class RewardVehicleCost(Base):
+    """Lavage offert limité à certains types de véhicules, avec un coût propre à chacun."""
+
+    __tablename__ = "reward_vehicle_costs"
+    __table_args__ = (UniqueConstraint("reward_id", "vehicle_type_id"),)
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    reward_id: Mapped[int] = mapped_column(ForeignKey("rewards.id", ondelete="CASCADE"), index=True)
+    vehicle_type_id: Mapped[int] = mapped_column(ForeignKey("vehicle_types.id", ondelete="CASCADE"))
+    points_cost: Mapped[int] = mapped_column(Integer)
+
+    vehicle_type: Mapped[VehicleType] = relationship()
+
+    @property
+    def vehicle_type_name(self) -> str | None:
+        return self.vehicle_type.name if self.vehicle_type else None
 
 
 class Promotion(Base):

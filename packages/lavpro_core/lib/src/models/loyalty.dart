@@ -26,10 +26,20 @@ class LoyaltyAccount {
       );
 }
 
+class RewardVehicleCost {
+  RewardVehicleCost({required this.vehicleTypeId, required this.pointsCost, this.vehicleTypeName});
+  final int vehicleTypeId;
+  final int pointsCost;
+  final String? vehicleTypeName;
+  factory RewardVehicleCost.fromJson(Map<String, dynamic> j) => RewardVehicleCost(
+      vehicleTypeId: j['vehicle_type_id'], pointsCost: j['points_cost'], vehicleTypeName: j['vehicle_type_name']);
+}
+
 class Reward {
   Reward({required this.id, required this.centerId, required this.name, this.description, required this.category,
       this.imageUrl, required this.pointsCost, this.stock, this.ecoMinLiters, required this.affordable,
-      this.lockedReason});
+      this.lockedReason, this.serviceTypeId, this.serviceName, this.vehicleCosts = const [], int? minCost})
+      : minCost = minCost ?? pointsCost;
   final int id;
   final int centerId;
   final String name;
@@ -41,18 +51,28 @@ class Reward {
   final double? ecoMinLiters;
   final bool affordable;
   final String? lockedReason;
+  /// Lavage offert : service concerné (null = cadeau hors lavage).
+  final int? serviceTypeId;
+  final String? serviceName;
+  /// Coûts par type de véhicule (vide = tous les véhicules au coût [pointsCost]).
+  final List<RewardVehicleCost> vehicleCosts;
+  final int minCost;
+
+  bool get isWash => serviceTypeId != null;
 
   factory Reward.fromJson(Map<String, dynamic> j) => Reward(
         id: j['id'], centerId: j['center_id'], name: j['name'], description: j['description'],
         category: j['category'] ?? 'gift', imageUrl: j['image_url'], pointsCost: j['points_cost'], stock: j['stock'],
         ecoMinLiters: (j['eco_min_liters_saved'] as num?)?.toDouble(), affordable: j['affordable'] ?? false,
-        lockedReason: j['locked_reason'],
+        lockedReason: j['locked_reason'], serviceTypeId: j['service_type_id'], serviceName: j['service_name'],
+        vehicleCosts: parseList(j['vehicle_costs'], RewardVehicleCost.fromJson), minCost: j['min_cost'],
       );
 }
 
 class Redemption {
   Redemption({required this.id, required this.centerId, this.centerName, this.rewardName, required this.points,
-      required this.code, required this.status, required this.createdAt, this.usedAt});
+      required this.code, required this.status, required this.createdAt, this.usedAt, this.isWash = false,
+      this.serviceTypeId, this.serviceName, this.vehicleTypeId, this.vehicleTypeName});
   final int id;
   final int centerId;
   final String? centerName;
@@ -62,17 +82,25 @@ class Redemption {
   final String status;
   final DateTime createdAt;
   final DateTime? usedAt;
+  /// Lavage offert : à utiliser lors de la validation du lavage.
+  final bool isWash;
+  final int? serviceTypeId;
+  final String? serviceName;
+  final int? vehicleTypeId;
+  final String? vehicleTypeName;
 
   factory Redemption.fromJson(Map<String, dynamic> j) => Redemption(
         id: j['id'], centerId: j['center_id'], centerName: j['center_name'], rewardName: j['reward_name'],
         points: j['points'], code: j['code'], status: j['status'], createdAt: parseDate(j['created_at'])!,
-        usedAt: parseDate(j['used_at']),
+        usedAt: parseDate(j['used_at']), isWash: j['is_wash'] ?? false, serviceTypeId: j['service_type_id'],
+        serviceName: j['service_name'], vehicleTypeId: j['vehicle_type_id'], vehicleTypeName: j['vehicle_type_name'],
       );
 }
 
 class WashRecord {
   WashRecord({required this.id, this.centerName, this.serviceName, this.vehicleTypeName, this.washerName,
-      required this.price, required this.points, required this.waterSaved, required this.createdAt});
+      required this.price, required this.points, required this.waterSaved, required this.createdAt,
+      this.paymentMethod = 'standard', this.pointsSpent = 0});
   final int id;
   final String? centerName;
   final String? serviceName;
@@ -82,11 +110,15 @@ class WashRecord {
   final int points;
   final double waterSaved;
   final DateTime createdAt;
+  /// standard | reward (lavage offert) | points (payé en points)
+  final String paymentMethod;
+  final int pointsSpent;
 
   factory WashRecord.fromJson(Map<String, dynamic> j) => WashRecord(
         id: j['id'], centerName: j['center_name'], serviceName: j['service_name'],
         vehicleTypeName: j['vehicle_type_name'], washerName: j['washer_name'], price: toDouble(j['price']),
         points: j['points_earned'], waterSaved: toDouble(j['water_saved_liters']), createdAt: parseDate(j['created_at'])!,
+        paymentMethod: j['payment_method'] ?? 'standard', pointsSpent: j['points_spent'] ?? 0,
       );
 }
 
@@ -101,7 +133,7 @@ class PointTx {
 
   static const labels = {
     'earn': 'Lavage', 'redeem': 'Récompense', 'referral': 'Parrainage', 'welcome': 'Bienvenue', 'bonus': 'Cadeau',
-    'adjust': 'Ajustement', 'refund': 'Remboursement',
+    'adjust': 'Ajustement', 'refund': 'Remboursement', 'wash_payment': 'Lavage payé en points',
   };
   String get label => labels[type] ?? type;
 

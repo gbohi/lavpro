@@ -41,6 +41,7 @@ class CenterBase(BaseModel):
     loyal_min_visits: int | None = Field(default=None, ge=1)
     loyal_period_days: int | None = Field(default=None, ge=1)
     inactive_after_days: int | None = Field(default=None, ge=1)
+    points_payment_enabled: bool | None = None
     reminder_enabled: bool | None = None
     reminder_default_days: int | None = Field(default=None, ge=1)
 
@@ -98,6 +99,7 @@ class CenterOut(ORM):
     loyal_min_visits: int
     loyal_period_days: int
     inactive_after_days: int
+    points_payment_enabled: bool
     reminder_enabled: bool
     reminder_default_days: int
     current_queue: int
@@ -127,6 +129,7 @@ class CenterPublic(ORM):
     lng: float | None
     currency: str
     booking_enabled: bool
+    points_payment_enabled: bool = False
     opening_hours: list[OpeningDay]
     distance_km: float | None = None
     occupancy: Occupancy | None = None

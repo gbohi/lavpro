@@ -36,6 +36,43 @@ class _ValidateScreenState extends ConsumerState<ValidateScreen> {
   bool _saving = false;
   CenterWash? _done;
   late List<Redemption> _pending = widget.request.client?.pendingRedemptions ?? const [];
+  /// standard | reward | points
+  String _payment = 'standard';
+  Redemption? _reward;
+
+  /// Utilise une récompense « lavage offert » : préremplit le service et le véhicule.
+  void _useReward(Redemption r) => setState(() {
+        _payment = 'reward';
+        _reward = r;
+        _serviceId = r.serviceTypeId ?? _serviceId;
+        _vehicleId = r.vehicleTypeId ?? _vehicleId;
+      });
+
+  void _setPayment(String p) => setState(() {
+        _payment = p;
+        if (p != 'reward') _reward = null;
+      });
+
+  /// Incohérence entre la récompense choisie et le service / véhicule sélectionnés.
+  String? get _rewardIssue {
+    final r = _reward;
+    if (_payment != 'reward' || r == null) return null;
+    if (_serviceId != null && r.serviceTypeId != _serviceId) return 'Cette récompense offre le service « ${r.serviceName} ».';
+    if (_vehicleId != null && r.vehicleTypeId != null && r.vehicleTypeId != _vehicleId) {
+      return 'Cette récompense est valable pour : ${r.vehicleTypeName}.';
+    }
+    return null;
+  }
+
+  /// Raison pour laquelle le paiement en points est impossible (null si possible).
+  String? _pointsIssue(PricingRule? rule) {
+    final c = widget.request.client;
+    if (c == null) return 'client non identifié';
+    if (rule == null) return 'choisissez un véhicule et un service';
+    if (rule.pointsPrice == null) return "ce lavage n'a pas de prix en points";
+    if (c.balance < rule.pointsPrice!) return 'solde insuffisant (${rule.pointsPrice} pts requis, ${c.balance} disponibles)';
+    return null;
+  }
 
   @override
   void initState() {
@@ -56,7 +93,8 @@ class _ValidateScreenState extends ConsumerState<ValidateScreen> {
     try {
       final w = await ref.read(repoProvider).validateWash(id,
           clientCode: widget.request.client?.memberCode, serviceId: _serviceId!, vehicleTypeId: _vehicleId!,
-          washerId: _washerId, bookingId: _bookingId, plate: _plate.text.trim().toUpperCase());
+          washerId: _washerId, bookingId: _bookingId, plate: _plate.text.trim().toUpperCase(),
+          paymentMethod: _payment, redemptionId: _reward?.id);
       refreshActivity(ref);
       setState(() => _done = w);
     } catch (e) {
@@ -97,20 +135,28 @@ class _ValidateScreenState extends ConsumerState<ValidateScreen> {
                 maxWidth: 620,
                 child: Builder(builder: (context) {
                   final rule = catalog.value?.rule(_serviceId, _vehicleId);
+                  final blocked = _rewardIssue != null || (_payment == 'points' && _pointsIssue(rule) != null);
+                  final summary = rule == null
+                      ? null
+                      : switch (_payment) {
+                          'reward' => 'Offert par la récompense (valeur ${fmtMoney(rule.price, currency)})',
+                          'points' => 'Payé avec ${rule.pointsPrice} points (valeur ${fmtMoney(rule.price, currency)})',
+                          _ => '${fmtMoney(rule.price, currency)}${widget.request.isWalkIn ? '' : '  ·  +${rule.points} points'}',
+                        };
                   return Column(mainAxisSize: MainAxisSize.min, children: [
-                    if (rule != null)
+                    if (summary != null)
                       Padding(
                         padding: const EdgeInsets.only(bottom: 10),
-                        child: Text(
-                          '${fmtMoney(rule.price, currency)}${widget.request.isWalkIn ? '' : '  ·  +${rule.points} points'}',
-                          style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 16),
-                        ),
+                        child: Text(summary, textAlign: TextAlign.center,
+                            style: TextStyle(
+                                fontWeight: FontWeight.w800, fontSize: 16,
+                                color: _payment == 'reward' ? AppColors.eco : _payment == 'points' ? AppColors.violet : null)),
                       ),
                     GradientButton(
                       label: 'Valider le lavage',
                       icon: Icons.task_alt_rounded,
                       loading: _saving,
-                      onPressed: _serviceId == null || _vehicleId == null ? null : _submit,
+                      onPressed: _serviceId == null || _vehicleId == null || blocked ? null : _submit,
                     ),
                   ]);
                 }),
@@ -191,19 +237,27 @@ class _ValidateScreenState extends ConsumerState<ValidateScreen> {
               child: AppCard(
                 color: AppColors.eco.withValues(alpha: .08),
                 child: Row(children: [
-                  const Icon(Icons.redeem_rounded, color: AppColors.eco),
+                  Icon(red.isWash ? Icons.local_car_wash_rounded : Icons.redeem_rounded, color: AppColors.eco),
                   const SizedBox(width: 10),
                   Expanded(
                     child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                       Text(red.rewardName ?? '', style: const TextStyle(fontWeight: FontWeight.w800)),
-                      Text('Récompense à remettre · ${red.code}', style: TextStyle(color: context.muted, fontSize: 12)),
+                      Text(
+                        red.isWash
+                            ? 'Lavage offert · ${red.serviceName}${red.vehicleTypeName != null ? ' · ${red.vehicleTypeName}' : ''}'
+                            : 'Récompense à remettre · ${red.code}',
+                        style: TextStyle(color: context.muted, fontSize: 12),
+                      ),
                     ]),
                   ),
-                  FilledButton(
-                    style: FilledButton.styleFrom(minimumSize: const Size(90, 40), backgroundColor: AppColors.eco),
-                    onPressed: () => _give(red),
-                    child: const Text('Remettre'),
-                  ),
+                  if (red.isWash && _reward?.id == red.id)
+                    const Pill('Utilisée', icon: Icons.check_rounded, color: AppColors.eco)
+                  else
+                    FilledButton(
+                      style: FilledButton.styleFrom(minimumSize: const Size(90, 40), backgroundColor: AppColors.eco),
+                      onPressed: () => red.isWash ? _useReward(red) : _give(red),
+                      child: Text(red.isWash ? 'Utiliser' : 'Remettre'),
+                    ),
                 ]),
               ),
             ),
@@ -252,6 +306,7 @@ class _ValidateScreenState extends ConsumerState<ValidateScreen> {
                 onSelected: (_) => setState(() => _washerId = w.id),
               ),
           ]),
+          if (c != null) ..._paymentSection(context, cat),
           const SizedBox(height: 18),
           if (c != null && c.vehicles.isNotEmpty) ...[
             Wrap(spacing: 8, runSpacing: 8, children: [
@@ -273,6 +328,57 @@ class _ValidateScreenState extends ConsumerState<ValidateScreen> {
         ]),
       ),
     ]);
+  }
+
+  List<Widget> _paymentSection(BuildContext context, CenterCatalog cat) {
+    final rule = cat.rule(_serviceId, _vehicleId);
+    final pointsEnabled = ref.watch(centerInfoProvider).value?.pointsPaymentEnabled ?? false;
+    final pointsIssue = _pointsIssue(rule);
+    final washRewards = _pending.where((r) => r.isWash).toList();
+    Widget chip(String label, IconData icon, bool selected, VoidCallback? onTap, {Color color = AppColors.primary}) =>
+        ChoiceChip(
+          avatar: Icon(icon, size: 18, color: selected ? Colors.white : color),
+          label: Text(label),
+          selected: selected,
+          showCheckmark: false,
+          selectedColor: color,
+          labelStyle: TextStyle(color: selected ? Colors.white : null, fontWeight: FontWeight.w700),
+          onSelected: onTap == null ? null : (_) => onTap(),
+        );
+    return [
+      _step(context, 4, 'Règlement'),
+      Wrap(spacing: 8, runSpacing: 8, children: [
+        chip('Payé', Icons.payments_rounded, _payment == 'standard', () => _setPayment('standard')),
+        for (final r in washRewards)
+          chip('Récompense : ${r.rewardName}', Icons.redeem_rounded, _reward?.id == r.id, () => _useReward(r),
+              color: AppColors.eco),
+        if (pointsEnabled)
+          chip(
+            rule?.pointsPrice != null ? 'En points (${rule!.pointsPrice} pts)' : 'En points',
+            Icons.stars_rounded,
+            _payment == 'points',
+            pointsIssue == null ? () => _setPayment('points') : null,
+            color: AppColors.violet,
+          ),
+      ]),
+      if (pointsEnabled && pointsIssue != null && _payment != 'points')
+        Padding(
+          padding: const EdgeInsets.only(top: 8),
+          child: Text('Paiement en points : $pointsIssue', style: TextStyle(color: context.muted, fontSize: 12)),
+        ),
+      if (_rewardIssue != null)
+        Padding(
+          padding: const EdgeInsets.only(top: 10),
+          child: AppCard(
+            color: AppColors.amber.withValues(alpha: .12),
+            child: Row(children: [
+              const Icon(Icons.warning_amber_rounded, color: AppColors.amber),
+              const SizedBox(width: 10),
+              Expanded(child: Text(_rewardIssue!, style: const TextStyle(fontWeight: FontWeight.w600))),
+            ]),
+          ),
+        ),
+    ];
   }
 
   Widget _step(BuildContext context, int n, String title) => Padding(
@@ -365,17 +471,28 @@ class _Success extends StatelessWidget {
             ),
             const SizedBox(height: 24),
             Row(children: [
-              Expanded(child: _Stat('Montant', fmtMoney(wash.price, currency))),
+              Expanded(
+                child: switch (wash.paymentMethod) {
+                  'reward' => _Stat('Règlement', 'Offert', color: AppColors.eco),
+                  'points' => _Stat('Payé en points', '−${wash.pointsSpent} pts', color: AppColors.violet),
+                  _ => _Stat('Montant', fmtMoney(wash.price, currency)),
+                },
+              ),
               if (wash.clientName != null) ...[
-                const SizedBox(width: 12),
-                Expanded(child: _Stat('Points gagnés', '+${wash.points}', color: AppColors.eco)),
+                if (wash.paymentMethod == 'standard') ...[
+                  const SizedBox(width: 12),
+                  Expanded(child: _Stat('Points gagnés', '+${wash.points}', color: AppColors.eco)),
+                ],
                 if (client != null) ...[
                   const SizedBox(width: 12),
-                  Expanded(child: _Stat('Nouveau solde', fmtNum(client.balance + wash.points))),
+                  Expanded(child: _Stat('Nouveau solde', fmtNum(client.balance + wash.points - wash.pointsSpent))),
                 ],
               ],
             ]),
-            if (wash.discount > 0) ...[
+            if (wash.paymentMethod != 'standard') ...[
+              const SizedBox(height: 10),
+              Pill('Valeur du lavage : ${fmtMoney(wash.discount, currency)}', color: AppColors.primary),
+            ] else if (wash.discount > 0) ...[
               const SizedBox(height: 10),
               Pill('Remise promotion : ${fmtMoney(wash.discount, currency)}', color: AppColors.violet),
             ],

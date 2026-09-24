@@ -52,8 +52,8 @@ class LavproRepository {
   Future<List<PointTx>> transactions({int? centerId}) async =>
       parseList(await api.get<List>('/me/transactions', query: {'center_id': centerId}), PointTx.fromJson);
   Future<List<Redemption>> redemptions() async => parseList(await api.get<List>('/me/redemptions'), Redemption.fromJson);
-  Future<Redemption> redeem(int rewardId) async =>
-      Redemption.fromJson(await api.post('/me/redemptions', {'reward_id': rewardId}));
+  Future<Redemption> redeem(int rewardId, {int? vehicleTypeId}) async => Redemption.fromJson(
+      await api.post('/me/redemptions', {'reward_id': rewardId, 'vehicle_type_id': vehicleTypeId}));
   Future<void> cancelRedemption(int id) => api.post('/me/redemptions/$id/cancel');
   Future<List<Booking>> bookings({bool upcoming = false}) async =>
       parseList(await api.get<List>('/me/bookings', query: {'upcoming': upcoming}), Booking.fromJson);

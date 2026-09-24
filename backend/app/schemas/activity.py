@@ -2,7 +2,7 @@ from datetime import datetime
 
 from pydantic import BaseModel, Field
 
-from app.models.enums import BookingStatus, RedemptionStatus, TransactionType
+from app.models.enums import BookingStatus, PaymentMethod, RedemptionStatus, TransactionType
 from app.schemas.common import ORM
 
 
@@ -49,6 +49,8 @@ class ClientLookupOut(ORM):
 
 
 class WashIn(BaseModel):
+    payment_method: PaymentMethod = PaymentMethod.standard
+    redemption_id: int | None = Field(default=None, description="Récompense « lavage offert » utilisée (payment_method=reward)")
     client_code: str | None = Field(default=None, description="QR token ou code membre du client (optionnel pour un client de passage)")
     service_type_id: int
     vehicle_type_id: int
@@ -76,6 +78,8 @@ class WashOut(ORM):
     price: float
     discount: float
     points_earned: int
+    payment_method: PaymentMethod = PaymentMethod.standard
+    points_spent: int = 0
     water_saved_liters: float
     note: str | None
     created_at: datetime
@@ -83,6 +87,7 @@ class WashOut(ORM):
 
 class RedemptionIn(BaseModel):
     reward_id: int
+    vehicle_type_id: int | None = None
 
 
 class RedemptionOut(ORM):
@@ -93,6 +98,12 @@ class RedemptionOut(ORM):
     client_name: str | None = None
     reward_id: int
     reward_name: str | None = None
+    is_wash: bool = False
+    service_type_id: int | None = None
+    service_name: str | None = None
+    vehicle_type_id: int | None
+    vehicle_type_name: str | None = None
+    wash_id: int | None
     points: int
     code: str
     status: RedemptionStatus

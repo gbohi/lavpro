@@ -87,6 +87,10 @@ type Tab = 'info' | 'hours' | 'booking' | 'loyalty' | 'reminders';
               <div class="field"><label>Client fidèle : visites minimum</label><input class="input" type="number" min="1" [(ngModel)]="c.loyal_min_visits"></div>
               <div class="field"><label>… sur une période de (jours)</label><input class="input" type="number" min="1" [(ngModel)]="c.loyal_period_days"></div>
               <div class="field"><label>Client inactif après (jours sans visite)</label><input class="input" type="number" min="1" [(ngModel)]="c.inactive_after_days"></div>
+              <div class="field full">
+                <label class="switch"><input type="checkbox" [(ngModel)]="c.points_payment_enabled"><span class="track"></span>Autoriser le paiement d'un lavage directement en points au comptoir</label>
+                <span class="hint">Le nombre de points à dépenser se règle pour chaque service et véhicule dans « Prix &amp; points » (ligne « payer »).</span>
+              </div>
             </div>
           }
           @case ('reminders') {

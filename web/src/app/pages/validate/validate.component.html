@@ -13,9 +13,13 @@
       <h1>Lavage validé !</h1>
       <p class="muted">{{ w.service_name }} · {{ w.vehicle_type_name }} @if (w.washer_name) { · lavé par <strong>{{ w.washer_name }}</strong> }</p>
       <div class="result-row">
-        <div><small>Montant</small><strong>{{ w.price | number:'1.0-0' }} {{ store.currency }}</strong>@if (w.discount) {<em>-{{ w.discount | number:'1.0-0' }} remise</em>}</div>
+        @switch (w.payment_method) {
+          @case ('reward') { <div><small>Règlement</small><strong class="eco">Offert</strong><em>récompense · valeur {{ w.discount | number:'1.0-0' }} {{ store.currency }}</em></div> }
+          @case ('points') { <div><small>Règlement</small><strong class="violet">{{ w.points_spent }} pts</strong><em>valeur {{ w.discount | number:'1.0-0' }} {{ store.currency }}</em></div> }
+          @default { <div><small>Montant</small><strong>{{ w.price | number:'1.0-0' }} {{ store.currency }}</strong>@if (w.discount) {<em>-{{ w.discount | number:'1.0-0' }} remise</em>}</div> }
+        }
         @if (w.user_id) {
-          <div><small>Points gagnés</small><strong class="grad-text">+{{ w.points_earned }}</strong></div>
+          @if (w.payment_method === 'standard') { <div><small>Points gagnés</small><strong class="grad-text">+{{ w.points_earned }}</strong></div> }
           <div><small>Nouveau solde</small><strong>{{ newBalance() }} pts</strong></div>
           @if (w.water_saved_liters) { <div><small>Eau économisée</small><strong class="eco">{{ w.water_saved_liters | number:'1.0-0' }} L</strong></div> }
         }
@@ -83,10 +87,16 @@
               <div class="notice"><span class="icon">event</span>Réservation à {{ c.upcoming_bookings[0].start_at | date:'HH:mm' }} : {{ c.upcoming_bookings[0].service_name }} ({{ c.upcoming_bookings[0].vehicle_type_name }})</div>
             }
             @for (r of c.pending_redemptions; track r.id) {
-              <div class="notice gift">
-                <span class="icon filled">redeem</span>
-                <div style="flex:1"><strong>{{ r.reward_name }}</strong><div class="small">Récompense à remettre · code {{ r.code }}</div></div>
-                <button class="btn sm success" (click)="giveReward(r)">Remettre</button>
+              <div class="notice gift" [class.selected]="redemptionId() === r.id">
+                <span class="icon filled">{{ r.is_wash ? 'local_car_wash' : 'redeem' }}</span>
+                @if (r.is_wash) {
+                  <div style="flex:1"><strong>{{ r.reward_name }}</strong><div class="small">Lavage offert · {{ r.service_name }}@if (r.vehicle_type_name) { · {{ r.vehicle_type_name }} } · code {{ r.code }}</div></div>
+                  @if (redemptionId() === r.id) { <span class="badge success"><span class="icon">check</span>Utilisée pour ce lavage</span> }
+                  @else { <button class="btn sm success" (click)="useReward(r)">Utiliser pour ce lavage</button> }
+                } @else {
+                  <div style="flex:1"><strong>{{ r.reward_name }}</strong><div class="small">Récompense à remettre · code {{ r.code }}</div></div>
+                  <button class="btn sm success" (click)="giveReward(r)">Remettre</button>
+                }
               </div>
             }
           </div>
@@ -123,6 +133,22 @@
                 <button class="chip" [class.active]="washerId === w.id" (click)="washerId = w.id"><span class="icon">person</span>{{ w.full_name }}</button>
               }
             </div>
+            @if (client(); as c) {
+              <h3 class="step"><span>4</span>Règlement</h3>
+              <div class="chips">
+                <button class="chip" [class.active]="payment() === 'standard'" (click)="setPayment('standard')"><span class="icon">payments</span>Payé</button>
+                @for (r of washRewards(); track r.id) {
+                  <button class="chip" [class.active]="redemptionId() === r.id" (click)="useReward(r)"><span class="icon">redeem</span>Récompense : {{ r.reward_name }}</button>
+                }
+                @if (store.center()?.points_payment_enabled) {
+                  <button class="chip" [class.active]="payment() === 'points'" [disabled]="!!pointsIssue()" [title]="pointsIssue() ?? ''" (click)="setPayment('points')">
+                    <span class="icon">stars</span>En points @if (selectedRule()?.points_price) { ({{ selectedRule()!.points_price }} pts) }
+                  </button>
+                }
+              </div>
+              @if (store.center()?.points_payment_enabled && pointsIssue() && payment() !== 'points') { <p class="small muted" style="margin-top:8px">Paiement en points : {{ pointsIssue() }}</p> }
+              @if (rewardIssue(); as issue) { <div class="notice warn"><span class="icon">warning</span>{{ issue }}</div> }
+            }
             <div class="form-grid" style="margin-top:18px">
               <div class="field"><label>Immatriculation</label><input class="input" [(ngModel)]="plate" placeholder="AB-123-CD"></div>
               <div class="field"><label>Note</label><input class="input" [(ngModel)]="note" placeholder="Optionnel"></div>
@@ -130,11 +156,17 @@
             <div class="summary">
               <div>
                 @if (selectedRule(); as r) {
-                  <strong>{{ r.price | number:'1.0-0' }} {{ store.currency }}</strong>
-                  @if (client()) { <span class="badge success">+{{ r.points }} points</span> }
+                  @switch (payment()) {
+                    @case ('reward') { <strong class="eco">Offert</strong><s class="muted">{{ r.price | number:'1.0-0' }} {{ store.currency }}</s> <span class="badge neutral">aucun point gagné</span> }
+                    @case ('points') { <strong class="violet">{{ r.points_price }} pts</strong><s class="muted">{{ r.price | number:'1.0-0' }} {{ store.currency }}</s> <span class="badge neutral">aucun point gagné</span> }
+                    @default {
+                      <strong>{{ r.price | number:'1.0-0' }} {{ store.currency }}</strong>
+                      @if (client()) { <span class="badge success">+{{ r.points }} points</span> }
+                    }
+                  }
                 } @else { <span class="muted">Sélectionnez un véhicule et un service</span> }
               </div>
-              <button class="btn primary lg" [disabled]="!ready() || saving()" (click)="validate()">
+              <button class="btn primary lg" [disabled]="!ready() || saving() || !!rewardIssue() || (payment() === 'points' && !!pointsIssue())" (click)="validate()">
                 <span class="icon">task_alt</span>{{ saving() ? 'Validation…' : 'Valider le lavage' }}
               </button>
             </div>

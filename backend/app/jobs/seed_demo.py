@@ -22,6 +22,7 @@ from app.models import (
     PricingRule,
     Promotion,
     Reward,
+    RewardVehicleCost,
     ServiceType,
     User,
     UserRole,
@@ -47,7 +48,7 @@ def run() -> None:
                             role=UserRole.staff)
         center = Center(name="Lavpro Démo – Cocody", slug="lavpro-demo", address="Boulevard Latrille",
                         city="Abidjan", country="Côte d'Ivoire", phone="+225 07 00 00 00", lat=5.3599, lng=-3.9870,
-                        currency="XOF", timezone="Africa/Abidjan", capacity=3, welcome_points=10,
+                        currency="XOF", timezone="Africa/Abidjan", capacity=3, welcome_points=10, points_payment_enabled=True,
                         referral_referrer_points=50, referral_referee_points=25,
                         description="Lavage premium, à la main, avec des produits biodégradables.",
                         opening_hours=[{"day": d, "open": "07:30", "close": "20:00", "closed": False} for d in range(7)])
@@ -70,17 +71,23 @@ def run() -> None:
             for vi, v in enumerate(vehicles):
                 price = round(base.get(si, 3000) * factor[vi % len(factor)], -2)
                 db.add(PricingRule(center_id=center.id, service_type_id=s.id, vehicle_type_id=v.id, price=price,
-                                   points=int(price // 100)))
+                                   points=int(price // 100), points_price=int(price // 10)))
         washers = [Washer(center_id=center.id, first_name=n, last_name=ln, commission_rate=10)
                    for n, ln in [("Koffi", "Yao"), ("Ibrahim", "Touré"), ("Didier", "Kouassi"), ("Moussa", "Diallo")]]
         db.add_all(washers)
         db.add_all([
-            Reward(center_id=center.id, name="Lavage simple offert", category="wash", points_cost=150, sort_order=0),
+            Reward(center_id=center.id, name="Lavage simple offert", category="wash", points_cost=150, sort_order=0,
+                   service_type_id=services[0].id,
+                   vehicle_costs=[RewardVehicleCost(vehicle_type_id=vehicles[0].id, points_cost=150),
+                                  RewardVehicleCost(vehicle_type_id=vehicles[1].id, points_cost=220),
+                                  RewardVehicleCost(vehicle_type_id=vehicles[2].id, points_cost=80)]),
             Reward(center_id=center.id, name="Senteur premium", category="fragrance", points_cost=80, stock=40),
             Reward(center_id=center.id, name="Jeu de tapis de sol", category="mat", points_cost=400, stock=10),
             Reward(center_id=center.id, name="Bidon d'huile 4 L", category="oil", points_cost=700, stock=8),
-            Reward(center_id=center.id, name="Lavage complet offert", category="wash", points_cost=350),
+            Reward(center_id=center.id, name="Lavage complet offert", category="wash", points_cost=350,
+                   service_type_id=services[1].id),
             Reward(center_id=center.id, name="Lavage sans eau offert", category="eco", points_cost=200,
+                   service_type_id=services[3].id,
                    eco_min_liters_saved=300, description="Réservé aux clients ayant économisé 300 L d'eau"),
         ])
         now = utcnow()

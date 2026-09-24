@@ -4,7 +4,7 @@ import { FormsModule } from '@angular/forms';
 import { Html5Qrcode } from 'html5-qrcode';
 import { CenterApi } from '../../core/center-api.service';
 import { CenterStore } from '../../core/center-store.service';
-import { ClientLookup, PricingRule, Redemption, Wash } from '../../core/models';
+import { ClientLookup, PaymentMethod, PricingRule, Redemption, Wash } from '../../core/models';
 import { ToastService } from '../../core/toast.service';
 
 @Component({
@@ -28,6 +28,8 @@ export class ValidateComponent implements OnInit, OnDestroy {
   saving = signal(false);
   done = signal<Wash | null>(null);
   newBalance = signal<number | null>(null);
+  payment = signal<PaymentMethod>('standard');
+  redemptionId = signal<number | null>(null);
   redemptionCode = '';
 
   vehicleTypeId = signal<number | null>(null);
@@ -42,6 +44,29 @@ export class ValidateComponent implements OnInit, OnDestroy {
   activeVehicles = computed(() => this.store.vehicleTypes().filter(v => v.is_active));
   activeWashers = computed(() => this.store.washers().filter(w => w.is_active));
   selectedRule = computed(() => this.rule(this.serviceId(), this.vehicleTypeId()));
+  washRewards = computed(() => this.client()?.pending_redemptions.filter(r => r.is_wash) ?? []);
+  selectedRedemption = computed(() => this.washRewards().find(r => r.id === this.redemptionId()) ?? null);
+
+  /** Incohérence entre la récompense choisie et le service / véhicule sélectionnés. */
+  rewardIssue = computed(() => {
+    const r = this.selectedRedemption();
+    if (this.payment() !== 'reward' || !r) return null;
+    if (this.serviceId() && r.service_type_id !== this.serviceId()) return `Cette récompense offre le service « ${r.service_name} ».`;
+    if (this.vehicleTypeId() && r.vehicle_type_id && r.vehicle_type_id !== this.vehicleTypeId()) return `Cette récompense est valable pour : ${r.vehicle_type_name}.`;
+    return null;
+  });
+
+  /** Raison pour laquelle le paiement en points est impossible (null si possible). */
+  pointsIssue = computed(() => {
+    const c = this.client();
+    const r = this.selectedRule();
+    if (!c) return 'client non identifié';
+    if (!r) return 'choisissez un véhicule et un service';
+    if (!r.points_price) return 'ce lavage n\'a pas de prix en points';
+    if (c.balance < r.points_price) return `solde insuffisant (${r.points_price} pts requis, ${c.balance} disponibles)`;
+    return null;
+  });
+
   ready = computed(() => (this.client() || this.walkIn()) && this.serviceId() && this.vehicleTypeId());
 
   ngOnInit(): void {
@@ -100,12 +125,13 @@ export class ValidateComponent implements OnInit, OnDestroy {
     const c = this.client();
     this.api.post<Wash>('/washes', {
       client_code: c?.member_code ?? null, service_type_id: this.serviceId(), vehicle_type_id: this.vehicleTypeId(),
-      washer_id: this.washerId, booking_id: this.bookingId, plate: this.plate || null, note: this.note || null,
+      washer_id: this.washerId, booking_id: this.bookingId, payment_method: this.payment(),
+      redemption_id: this.payment() === 'reward' ? this.redemptionId() : null, plate: this.plate || null, note: this.note || null,
     }).subscribe({
       next: w => {
         this.saving.set(false);
         this.done.set(w);
-        this.newBalance.set(c ? c.balance + w.points_earned : null);
+        this.newBalance.set(c ? c.balance + w.points_earned - w.points_spent : null);
         this.toast.success('Lavage validé');
       },
       error: () => this.saving.set(false),
@@ -128,7 +154,22 @@ export class ValidateComponent implements OnInit, OnDestroy {
     });
   }
 
+  setPayment(p: PaymentMethod): void {
+    this.payment.set(p);
+    if (p !== 'reward') this.redemptionId.set(null);
+  }
+
+  /** Utilise une récompense « lavage offert » : préremplit le service et le véhicule. */
+  useReward(r: Redemption): void {
+    this.payment.set('reward');
+    this.redemptionId.set(r.id);
+    if (r.service_type_id) this.serviceId.set(r.service_type_id);
+    if (r.vehicle_type_id) this.vehicleTypeId.set(r.vehicle_type_id);
+  }
+
   reset(): void {
+    this.payment.set('standard');
+    this.redemptionId.set(null);
     this.client.set(null);
     this.walkIn.set(false);
     this.done.set(null);

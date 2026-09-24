@@ -39,12 +39,12 @@ import { daysAgo, download, isoDate } from '../../shared/period';
         <div class="card"><small>Lavages</small><strong>{{ washes().length }}</strong></div>
         <div class="card"><small>Montant</small><strong>{{ total().amount | number:'1.0-0' }} {{ store.currency }}</strong></div>
         <div class="card"><small>Points distribués</small><strong>{{ total().points | number }}</strong></div>
-        <div class="card"><small>Clients de passage</small><strong>{{ total().anonymous }}</strong></div>
+        <div class="card"><small>Offerts / payés en points</small><strong>{{ total().free }}</strong></div>
       </div>
       <div class="card flush">
         <div class="table-wrap">
           <table class="table">
-            <thead><tr><th>Date</th><th>Client</th><th>Service</th><th>Véhicule</th><th>Laveur</th><th>Validé par</th><th class="num">Montant</th><th class="num">Points</th><th></th></tr></thead>
+            <thead><tr><th>Date</th><th>Client</th><th>Service</th><th>Véhicule</th><th>Laveur</th><th>Validé par</th><th>Règlement</th><th class="num">Montant</th><th class="num">Points</th><th></th></tr></thead>
             <tbody>
               @for (w of washes(); track w.id) {
                 <tr>
@@ -54,12 +54,17 @@ import { daysAgo, download, isoDate } from '../../shared/period';
                   <td>{{ w.vehicle_type_name }} @if (w.plate) { <div class="small muted">{{ w.plate }}</div> }</td>
                   <td>@if (w.washer_name) { <span class="badge neutral">{{ w.washer_name }}</span> } @else { <span class="muted">—</span> }</td>
                   <td class="small">{{ w.validated_by_name }}</td>
-                  <td class="num">{{ w.price | number:'1.0-0' }} @if (w.discount) { <div class="small" style="color:var(--success)">-{{ w.discount | number:'1.0-0' }}</div> }</td>
-                  <td class="num"><strong>+{{ w.points_earned }}</strong></td>
+                  <td>@switch (w.payment_method) {
+                    @case ('reward') { <span class="badge success"><span class="icon">redeem</span>Récompense</span> }
+                    @case ('points') { <span class="badge" style="background:rgba(139,92,246,.12);color:#7c3aed"><span class="icon">stars</span>{{ w.points_spent }} pts</span> }
+                    @default { <span class="badge neutral">Payé</span> }
+                  }</td>
+                  <td class="num">{{ w.price | number:'1.0-0' }} @if (w.discount && w.payment_method === 'standard') { <div class="small" style="color:var(--success)">-{{ w.discount | number:'1.0-0' }}</div> }</td>
+                  <td class="num"><strong>{{ w.payment_method === 'points' ? '−' + w.points_spent : '+' + w.points_earned }}</strong></td>
                   <td class="num">@if (auth.isOwner()) { <button class="btn ghost icon-only sm" title="Annuler" (click)="cancel(w)"><span class="icon">delete</span></button> }</td>
                 </tr>
               } @empty {
-                <tr><td colspan="9"><div class="empty"><span class="icon">local_car_wash</span>Aucun lavage sur cette période</div></td></tr>
+                <tr><td colspan="10"><div class="empty"><span class="icon">local_car_wash</span>Aucun lavage sur cette période</div></td></tr>
               }
             </tbody>
           </table>
@@ -86,8 +91,8 @@ export class WashesComponent implements OnInit {
   serviceId: number | null = null;
 
   total = computed(() => this.washes().reduce((a, w) => ({
-    amount: a.amount + w.price, points: a.points + w.points_earned, anonymous: a.anonymous + (w.user_id ? 0 : 1),
-  }), { amount: 0, points: 0, anonymous: 0 }));
+    amount: a.amount + w.price, points: a.points + w.points_earned, free: a.free + (w.payment_method === 'standard' ? 0 : 1),
+  }), { amount: 0, points: 0, free: 0 }));
 
   ngOnInit(): void { this.load(); }
 

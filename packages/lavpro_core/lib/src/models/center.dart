@@ -29,7 +29,7 @@ class WashCenter {
   WashCenter({
     required this.id, required this.name, this.description, required this.address, required this.city, this.phone,
     this.logoUrl, this.coverUrl, this.lat, this.lng, required this.currency, required this.bookingEnabled,
-    required this.openingHours, this.distanceKm, this.occupancy, this.myBalance,
+    required this.openingHours, this.distanceKm, this.occupancy, this.myBalance, this.pointsPaymentEnabled = false,
   });
   final int id;
   final String name;
@@ -47,6 +47,8 @@ class WashCenter {
   final double? distanceKm;
   final Occupancy? occupancy;
   final int? myBalance;
+  /// Le centre accepte le règlement d'un lavage en points au comptoir.
+  final bool pointsPaymentEnabled;
 
   String get fullAddress => [address, city].where((e) => e.isNotEmpty).join(', ');
 
@@ -65,6 +67,7 @@ class WashCenter {
         bookingEnabled: j['booking_enabled'] ?? false, openingHours: parseList(j['opening_hours'], OpeningDay.fromJson),
         distanceKm: (j['distance_km'] as num?)?.toDouble(),
         occupancy: j['occupancy'] == null ? null : Occupancy.fromJson(j['occupancy']), myBalance: j['my_balance'],
+        pointsPaymentEnabled: j['points_payment_enabled'] ?? false,
       );
 }
 
@@ -96,14 +99,18 @@ class ServiceType {
 }
 
 class PricingRule {
-  PricingRule({required this.serviceId, required this.vehicleId, required this.price, required this.points});
+  PricingRule({required this.serviceId, required this.vehicleId, required this.price, required this.points,
+      this.pointsPrice});
   final int serviceId;
   final int vehicleId;
   final double price;
+  /// Points gagnés par le client.
   final int points;
+  /// Points à dépenser pour payer ce lavage au comptoir (null = non payable en points).
+  final int? pointsPrice;
   factory PricingRule.fromJson(Map<String, dynamic> j) => PricingRule(
       serviceId: j['service_type_id'], vehicleId: j['vehicle_type_id'], price: toDouble(j['price']),
-      points: toInt(j['points']));
+      points: toInt(j['points']), pointsPrice: (j['points_price'] as num?)?.toInt());
 }
 
 class Promotion {

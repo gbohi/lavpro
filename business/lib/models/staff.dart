@@ -69,7 +69,7 @@ class Washer {
 class CenterWash {
   CenterWash({required this.id, this.clientName, this.serviceName, this.vehicleTypeName, this.washerName,
       this.validatedBy, this.plate, required this.price, required this.discount, required this.points,
-      required this.createdAt});
+      required this.createdAt, this.paymentMethod = 'standard', this.pointsSpent = 0});
   final int id;
   final String? clientName;
   final String? serviceName;
@@ -81,24 +81,31 @@ class CenterWash {
   final double discount;
   final int points;
   final DateTime createdAt;
+  /// standard | reward (lavage offert) | points (payé en points)
+  final String paymentMethod;
+  final int pointsSpent;
 
   factory CenterWash.fromJson(Map<String, dynamic> j) => CenterWash(
         id: j['id'], clientName: j['client_name'], serviceName: j['service_name'],
         vehicleTypeName: j['vehicle_type_name'], washerName: j['washer_name'], validatedBy: j['validated_by_name'],
         plate: j['plate'], price: toDouble(j['price']), discount: toDouble(j['discount']), points: j['points_earned'],
-        createdAt: parseDate(j['created_at'])!,
+        createdAt: parseDate(j['created_at'])!, paymentMethod: j['payment_method'] ?? 'standard',
+        pointsSpent: j['points_spent'] ?? 0,
       );
 }
 
 /// Informations du centre utiles à l'application (sous-ensemble de /manage/centers/{id}).
 class ManagedCenter {
-  ManagedCenter({required this.id, required this.name, required this.currency, required this.city});
+  ManagedCenter({required this.id, required this.name, required this.currency, required this.city,
+      this.pointsPaymentEnabled = false});
   final int id;
   final String name;
   final String currency;
   final String city;
-  factory ManagedCenter.fromJson(Map<String, dynamic> j) =>
-      ManagedCenter(id: j['id'], name: j['name'], currency: j['currency'] ?? '', city: j['city'] ?? '');
+  final bool pointsPaymentEnabled;
+  factory ManagedCenter.fromJson(Map<String, dynamic> j) => ManagedCenter(
+      id: j['id'], name: j['name'], currency: j['currency'] ?? '', city: j['city'] ?? '',
+      pointsPaymentEnabled: j['points_payment_enabled'] ?? false);
 }
 
 /// Données du tableau de bord (voir /stats/dashboard).

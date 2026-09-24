@@ -21,7 +21,7 @@ export interface Center {
   booking_min_notice_minutes: number; booking_max_days_ahead: number; occupancy_moderate_ratio: number;
   occupancy_high_ratio: number; welcome_points: number; referral_referrer_points: number;
   referral_referee_points: number; loyal_min_visits: number; loyal_period_days: number;
-  inactive_after_days: number; reminder_enabled: boolean; reminder_default_days: number; current_queue: number;
+  inactive_after_days: number; points_payment_enabled: boolean; reminder_enabled: boolean; reminder_default_days: number; current_queue: number;
 }
 
 export interface Occupancy {
@@ -40,12 +40,16 @@ export interface ServiceType {
   sort_order: number; is_active: boolean;
 }
 
-export interface PricingRule { id?: number; service_type_id: number; vehicle_type_id: number; price: number; points: number; is_active: boolean; }
+export interface PricingRule { id?: number; service_type_id: number; vehicle_type_id: number; price: number; points: number; points_price: number | null; is_active: boolean; }
 
+export interface RewardVehicleCost { vehicle_type_id: number; points_cost: number; vehicle_type_name?: string | null; }
 export interface Reward {
   id: number; center_id: number; name: string; description: string | null; category: string;
   image_url: string | null; points_cost: number; stock: number | null; eco_min_liters_saved: number | null;
   valid_from: string | null; valid_until: string | null; sort_order: number; is_active: boolean;
+  /** Lavage offert : service concerné (null = cadeau hors lavage) */
+  service_type_id: number | null; service_name?: string | null; vehicle_costs: RewardVehicleCost[];
+  is_wash?: boolean; min_cost?: number;
 }
 
 export type PromotionTarget = 'all' | 'loyal' | 'inactive' | 'new';
@@ -70,7 +74,8 @@ export interface ClientVehicle { id: number; label: string; category: string | n
 export type RedemptionStatus = 'pending' | 'used' | 'cancelled';
 export interface Redemption {
   id: number; center_id: number; user_id: number; client_name: string | null; reward_id: number;
-  reward_name: string | null; points: number; code: string; status: RedemptionStatus; created_at: string; used_at: string | null;
+  reward_name: string | null; is_wash: boolean; service_type_id: number | null; service_name: string | null;
+  vehicle_type_id: number | null; vehicle_type_name: string | null; wash_id: number | null; points: number; code: string; status: RedemptionStatus; created_at: string; used_at: string | null;
 }
 
 export type BookingStatus = 'pending' | 'confirmed' | 'completed' | 'cancelled' | 'no_show';
@@ -86,11 +91,13 @@ export interface ClientLookup {
   pending_redemptions: Redemption[]; upcoming_bookings: Booking[]; is_loyal: boolean;
 }
 
+export type PaymentMethod = 'standard' | 'reward' | 'points';
 export interface Wash {
   id: number; center_id: number; user_id: number | null; client_name: string | null; service_type_id: number;
   service_name: string | null; vehicle_type_id: number; vehicle_type_name: string | null; washer_id: number | null;
   washer_name: string | null; validated_by_name: string | null; plate: string | null; price: number; discount: number;
-  points_earned: number; water_saved_liters: number; note: string | null; created_at: string;
+  points_earned: number; payment_method: PaymentMethod; points_spent: number; water_saved_liters: number;
+  note: string | null; created_at: string;
 }
 
 export interface ClientSummary {
@@ -108,13 +115,14 @@ export interface Dashboard {
     anonymous_washes: number; new_clients: number; total_clients: number; returning_clients: number;
     loyal_clients: number; loyalty_rate: number; points_issued: number; points_redeemed: number;
     redemptions: Record<string, number>; bookings: number; water_saved_liters: number; queue: number;
+    reward_washes: number; points_washes: number; offered_value: number; points_spent_on_washes: number;
   };
   washes_per_day: { date: string; washes: number; revenue: number }[];
   hourly: { hour: number; washes: number }[];
   weekdays: { day: number; washes: number }[];
   services: { id: number; name: string; count: number; revenue: number; share: number }[];
   vehicle_types: { id: number; name: string; count: number }[];
-  washers: { id: number | null; name: string; count: number; revenue: number; commission: number; services?: Record<string, number> }[];
+  washers: { id: number | null; name: string; count: number; revenue: number; offered_value: number; commission: number; services?: Record<string, number> }[];
   top_clients: { id: number; name: string; washes: number; spent: number }[];
 }
 

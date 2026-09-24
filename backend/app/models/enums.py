@@ -20,6 +20,7 @@ class TransactionType(str, enum.Enum):
     bonus = "bonus"
     adjust = "adjust"
     refund = "refund"
+    wash_payment = "wash_payment"
 
 
 class RedemptionStatus(str, enum.Enum):
@@ -41,3 +42,9 @@ class PromotionTarget(str, enum.Enum):
     loyal = "loyal"
     inactive = "inactive"
     new = "new"
+
+
+class PaymentMethod(str, enum.Enum):
+    standard = "standard"
+    reward = "reward"
+    points = "points"

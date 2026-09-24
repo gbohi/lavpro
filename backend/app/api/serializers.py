@@ -31,6 +31,11 @@ def redemption_out(r: Redemption) -> RedemptionOut:
     out.center_name = r.center.name if r.center else None
     out.client_name = r.user.full_name if r.user else None
     out.reward_name = r.reward.name if r.reward else None
+    if r.reward and r.reward.is_wash:
+        out.is_wash = True
+        out.service_type_id = r.reward.service_type_id
+        out.service_name = r.reward.service_name
+    out.vehicle_type_name = r.vehicle_type.name if r.vehicle_type else None
     return out
 
 

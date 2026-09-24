@@ -71,7 +71,11 @@ class _WashesScreenState extends ConsumerState<WashesScreen> {
                                 ]),
                               ),
                               Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
-                                Text(fmtMoney(w.price, currency), style: const TextStyle(fontWeight: FontWeight.w800)),
+                                switch (w.paymentMethod) {
+                                  'reward' => const Pill('Offert', icon: Icons.redeem_rounded, color: AppColors.eco),
+                                  'points' => Pill('${w.pointsSpent} pts', icon: Icons.stars_rounded, color: AppColors.violet),
+                                  _ => Text(fmtMoney(w.price, currency), style: const TextStyle(fontWeight: FontWeight.w800)),
+                                },
                                 if (w.points > 0)
                                   Text('+${w.points} pts', style: const TextStyle(color: AppColors.eco, fontWeight: FontWeight.w700, fontSize: 12)),
                               ]),

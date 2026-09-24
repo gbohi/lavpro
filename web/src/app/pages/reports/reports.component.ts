@@ -28,7 +28,7 @@ import { PERIODS, daysAgo, download, isoDate } from '../../shared/period';
           <div class="card-head pad"><h2>Point de lavage par laveur</h2><span class="badge neutral">{{ d.kpis.washes }} lavages · {{ d.kpis.revenue | number:'1.0-0' }} {{ d.currency }}</span></div>
           <div class="table-wrap">
             <table class="table">
-              <thead><tr><th>Laveur</th><th class="num">Lavages</th><th class="num">Part</th><th class="num">Chiffre d'affaires</th><th class="num">Commission</th><th>Détail par service</th></tr></thead>
+              <thead><tr><th>Laveur</th><th class="num">Lavages</th><th class="num">Part</th><th class="num">Chiffre d'affaires</th><th class="num">Lavages offerts (valeur)</th><th class="num">Commission</th><th>Détail par service</th></tr></thead>
               <tbody>
                 @for (w of washers(); track w.id) {
                   <tr>
@@ -36,10 +36,11 @@ import { PERIODS, daysAgo, download, isoDate } from '../../shared/period';
                     <td class="num"><strong>{{ w.count }}</strong></td>
                     <td class="num">{{ (d.kpis.washes ? w.count / d.kpis.washes * 100 : 0) | number:'1.0-1' }} %</td>
                     <td class="num">{{ w.revenue | number:'1.0-0' }} {{ d.currency }}</td>
+                    <td class="num">{{ w.offered_value | number:'1.0-0' }} {{ d.currency }}</td>
                     <td class="num">{{ w.commission | number:'1.0-0' }} {{ d.currency }}</td>
                     <td><div class="chips">@for (s of w.services | keyvalue; track s.key) { <span class="badge neutral">{{ s.key }} : {{ s.value }}</span> }</div></td>
                   </tr>
-                } @empty { <tr><td colspan="6"><div class="empty">Aucun lavage sur la période</div></td></tr> }
+                } @empty { <tr><td colspan="7"><div class="empty">Aucun lavage sur la période</div></td></tr> }
               </tbody>
             </table>
           </div>
@@ -77,6 +78,13 @@ import { PERIODS, daysAgo, download, isoDate } from '../../shared/period';
           <div class="card stat"><small>Récompenses remises</small><strong>{{ d.kpis.redemptions['used'] || 0 }}</strong></div>
           <div class="card stat"><small>Récompenses en attente</small><strong>{{ d.kpis.redemptions['pending'] || 0 }}</strong></div>
         </div>
+        <div class="grid grid-4 mt">
+          <div class="card stat"><small>Lavages offerts (récompense)</small><strong>{{ d.kpis.reward_washes }}</strong></div>
+          <div class="card stat"><small>Lavages payés en points</small><strong>{{ d.kpis.points_washes }}</strong></div>
+          <div class="card stat"><small>Points dépensés en lavages</small><strong>{{ d.kpis.points_spent_on_washes | number }}</strong></div>
+          <div class="card stat"><small>Valeur des lavages offerts</small><strong>{{ d.kpis.offered_value | number:'1.0-0' }} {{ d.currency }}</strong></div>
+        </div>
+        <p class="small muted" style="margin-top:10px">La commission des laveurs est calculée sur le chiffre d'affaires + la valeur des lavages offerts qu'ils ont réalisés.</p>
       }
     </div>
   `,

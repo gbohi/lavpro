@@ -142,7 +142,7 @@ def redeem(body: RedemptionIn, user: CurrentUser, db: DB):
     reward = db.get(Reward, body.reward_id)
     if reward is None:
         raise HTTPException(404, "Récompense introuvable")
-    r = redeem_reward(db, user, reward)
+    r = redeem_reward(db, user, reward, body.vehicle_type_id)
     db.commit()
     return redemption_out(r)
 

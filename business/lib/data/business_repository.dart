@@ -48,10 +48,11 @@ class BusinessRepository {
       ClientLookup.fromJson(await api.get('${_m(id)}/clients/lookup', query: {'code': code}));
 
   Future<CenterWash> validateWash(int id, {String? clientCode, required int serviceId, required int vehicleTypeId,
-      int? washerId, int? bookingId, String? plate}) async =>
+      int? washerId, int? bookingId, String? plate, String paymentMethod = 'standard', int? redemptionId}) async =>
       CenterWash.fromJson(await api.post('${_m(id)}/washes', {
         'client_code': clientCode, 'service_type_id': serviceId, 'vehicle_type_id': vehicleTypeId,
         'washer_id': washerId, 'booking_id': bookingId, 'plate': (plate?.isEmpty ?? true) ? null : plate,
+        'payment_method': paymentMethod, 'redemption_id': redemptionId,
       }));
 
   Future<List<CenterWash>> washes(int id, DateTime day) async => parseList(
