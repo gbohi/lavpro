@@ -17,7 +17,7 @@ import { daysAgo, download, isoDate } from '../../shared/period';
     <div class="page">
       <div class="page-head">
         <div><h1>Historique des lavages</h1><p class="muted">Tous les lavages validés, par qui et pour qui.</p></div>
-        <button class="btn" (click)="export()"><span class="icon">download</span>Exporter (CSV)</button>
+        @if (auth.can('view_reports')) { <button class="btn" (click)="export()"><span class="icon">download</span>Exporter (CSV)</button> }
       </div>
       <div class="card filters">
         <div class="field"><label>Du</label><input class="input" type="date" [(ngModel)]="from" (change)="load()"></div>
@@ -61,7 +61,7 @@ import { daysAgo, download, isoDate } from '../../shared/period';
                   }</td>
                   <td class="num">{{ w.price | number:'1.0-0' }} @if (w.discount && w.payment_method === 'standard') { <div class="small" style="color:var(--success)">-{{ w.discount | number:'1.0-0' }}</div> }</td>
                   <td class="num"><strong>{{ w.payment_method === 'points' ? '−' + w.points_spent : '+' + w.points_earned }}</strong></td>
-                  <td class="num">@if (auth.isOwner()) { <button class="btn ghost icon-only sm" title="Annuler" (click)="cancel(w)"><span class="icon">delete</span></button> }</td>
+                  <td class="num">@if (auth.can('cancel_washes')) { <button class="btn ghost icon-only sm" title="Annuler" (click)="cancel(w)"><span class="icon">delete</span></button> }</td>
                 </tr>
               } @empty {
                 <tr><td colspan="10"><div class="empty"><span class="icon">local_car_wash</span>Aucun lavage sur cette période</div></td></tr>

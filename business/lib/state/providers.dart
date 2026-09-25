@@ -86,6 +86,11 @@ Membership? currentMembership(WidgetRef ref) {
   return ref.watch(currentUserProvider)?.memberships.where((m) => m.centerId == id).firstOrNull;
 }
 
+/// Le gestionnaire connecté a-t-il ce droit dans le centre sélectionné ?
+bool can(WidgetRef ref, String permission) => currentMembership(ref)?.can(permission) ?? false;
+
+final washersProvider = FutureProvider<List<Washer>>((ref) => ref.watch(repoProvider).allWashers(_cid(ref)));
+
 class ThemeModeController extends Notifier<ThemeMode> {
   @override
   ThemeMode build() => ThemeMode.system;

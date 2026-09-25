@@ -25,7 +25,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
     super.initState();
     _live = Timer.periodic(const Duration(seconds: 30), (_) {
       ref.invalidate(occupancyProvider);
-      ref.invalidate(dashboardProvider);
+      if (can(ref, 'view_reports')) ref.invalidate(dashboardProvider);
     });
   }
 
@@ -38,7 +38,8 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
   @override
   Widget build(BuildContext context) {
     final period = ref.watch(dashboardPeriodProvider);
-    final data = ref.watch(dashboardProvider);
+    final canReports = can(ref, 'view_reports');
+    final data = canReports ? ref.watch(dashboardProvider) : null;
     final pad = context.pagePadding;
     const periods = [(0, "Aujourd'hui"), (6, '7 jours'), (29, '30 jours')];
 
@@ -47,6 +48,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
         child: RefreshIndicator(
           onRefresh: () async {
             ref.invalidate(occupancyProvider);
+            if (!can(ref, 'view_reports')) return;
             ref.invalidate(dashboardProvider);
             await ref.read(dashboardProvider.future);
           },
@@ -57,6 +59,22 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                 const SizedBox(height: 18),
                 const _QueueCard(),
                 const SizedBox(height: 18),
+                if (data == null)
+                  AppCard(
+                    color: AppColors.primary.withValues(alpha: .06),
+                    child: const Row(children: [
+                      Icon(Icons.lock_outline_rounded, color: AppColors.primary),
+                      SizedBox(width: 12),
+                      Expanded(
+                        child: Text(
+                          "Le chiffre d'affaires et les statistiques sont réservés aux gestionnaires qui en ont le droit. "
+                          'Vous pouvez valider les lavages, gérer la file et les réservations.',
+                          style: TextStyle(fontWeight: FontWeight.w600, height: 1.4),
+                        ),
+                      ),
+                    ]),
+                  )
+                else ...[
                 Wrap(spacing: 8, children: [
                   for (final (d, label) in periods)
                     ChoiceChip(
@@ -74,6 +92,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                   onRetry: () => ref.invalidate(dashboardProvider),
                   builder: (d) => _Body(d),
                 ),
+                ],
               ]),
             ),
           ]),

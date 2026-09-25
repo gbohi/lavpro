@@ -52,6 +52,13 @@ DEFAULTS: dict[str, dict[str, Any]] = {
     "weather.lookahead_days": {"value": 2, "label": "Jours de prévision analysés", "group": "weather"},
     "weather.cache_minutes": {"value": 60, "label": "Durée de cache météo (minutes)", "group": "weather"},
     "booking.cancel_min_notice_minutes": {"value": 60, "label": "Délai minimum d'annulation (minutes)", "group": "booking"},
+    "members.default_permissions": {
+        "value": ["manage_washers", "manage_catalog", "manage_rewards", "view_reports", "adjust_points", "manage_settings"],
+        "label": "Droits par défaut d'un nouveau gestionnaire",
+        "description": "Clés possibles : manage_team, manage_washers, manage_catalog, manage_rewards, view_reports, "
+                       "adjust_points, cancel_washes, manage_settings",
+        "group": "team",
+    },
     "centers.search_radius_km": {"value": 50, "label": "Rayon de recherche par défaut (km)", "group": "centers"},
     "vehicle.categories": {
         "value": ["Berline", "4x4 / SUV", "Moto", "Camionnette", "Gros camion"],

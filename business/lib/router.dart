@@ -11,6 +11,7 @@ import 'ui/screens/scan_screen.dart';
 import 'ui/screens/shell.dart';
 import 'ui/screens/splash_screen.dart';
 import 'ui/screens/validate_screen.dart';
+import 'ui/screens/washers_screen.dart';
 import 'ui/screens/washes_screen.dart';
 
 class _AuthListenable extends ChangeNotifier {
@@ -45,6 +46,7 @@ final routerProvider = Provider<GoRouter>((ref) {
           StatefulShellBranch(routes: [GoRoute(path: '/more', builder: (_, _) => const MoreScreen())]),
         ],
       ),
+      GoRoute(path: '/washers', builder: (_, _) => const WashersScreen()),
       GoRoute(
         path: '/validate',
         builder: (_, s) => ValidateScreen(request: s.extra as ValidateRequest? ?? const ValidateRequest.walkIn()),

@@ -2,13 +2,14 @@ import { DatePipe, DecimalPipe } from '@angular/common';
 import { Component, OnInit, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { Subject, debounceTime } from 'rxjs';
+import { AuthService } from '../../core/auth.service';
 import { CenterApi } from '../../core/center-api.service';
 import { ClientSummary, Transaction } from '../../core/models';
 import { ToastService } from '../../core/toast.service';
 import { ModalComponent } from '../../shared/modal.component';
 
 const TX_LABEL: Record<string, string> = {
-  earn: 'Lavage', redeem: 'Récompense', referral: 'Parrainage', welcome: 'Bienvenue', bonus: 'Bonus', adjust: 'Ajustement', refund: 'Remboursement',
+  earn: 'Lavage', redeem: 'Récompense', referral: 'Parrainage', welcome: 'Bienvenue', bonus: 'Bonus', adjust: 'Ajustement', refund: 'Remboursement', wash_payment: 'Lavage payé en points',
 };
 
 @Component({
@@ -58,6 +59,7 @@ const TX_LABEL: Record<string, string> = {
 
     <app-modal [open]="!!selected()" [title]="(selected()?.first_name ?? '') + ' ' + (selected()?.last_name ?? '')"
       [subtitle]="'Solde actuel : ' + (selected()?.balance ?? 0) + ' points'" [width]="620" (close)="selected.set(null)">
+      @if (auth.can('adjust_points')) {
       <div class="card adjust">
         <h3>Ajuster les points</h3>
         <div class="row" style="margin-top:10px">
@@ -66,6 +68,7 @@ const TX_LABEL: Record<string, string> = {
           <button class="btn primary" [disabled]="!adjust.points || adjust.note.length < 2" (click)="doAdjust()">Appliquer</button>
         </div>
       </div>
+      }
       <h3 style="margin:18px 0 8px">Historique des points</h3>
       @for (t of transactions(); track t.id) {
         <div class="list-item">
@@ -81,6 +84,7 @@ const TX_LABEL: Record<string, string> = {
 export class ClientsComponent implements OnInit {
   private api = inject(CenterApi);
   private toast = inject(ToastService);
+  auth = inject(AuthService);
   txLabel = TX_LABEL;
   clients = signal<ClientSummary[]>([]);
   selected = signal<ClientSummary | null>(null);

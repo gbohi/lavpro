@@ -73,6 +73,8 @@ class CenterMember(Base):
     center_id: Mapped[int] = mapped_column(ForeignKey("centers.id", ondelete="CASCADE"), index=True)
     user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
     role: Mapped[MemberRole] = mapped_column(Enum(MemberRole), default=MemberRole.manager)
+    # Droits du gestionnaire (voir app/core/permissions.py) ; ignoré pour un propriétaire
+    permissions: Mapped[list] = mapped_column(JSON, default=list)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
 

@@ -145,6 +145,7 @@ class MemberOut(ORM):
     id: int
     user_id: int
     role: MemberRole
+    permissions: list[str] = []
     is_active: bool
     email: str
     first_name: str
@@ -160,10 +161,12 @@ class MemberCreate(BaseModel):
     phone: str | None = None
     password: str | None = Field(default=None, min_length=6)
     role: MemberRole = MemberRole.manager
+    permissions: list[str] | None = Field(default=None, description="Droits du gestionnaire (défaut : réglage plateforme)")
 
 
 class MemberUpdate(BaseModel):
     role: MemberRole | None = None
+    permissions: list[str] | None = None
     is_active: bool | None = None
 
 

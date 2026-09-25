@@ -24,6 +24,7 @@ class MembershipOut(ORM):
     center_id: int
     center_name: str
     role: MemberRole
+    permissions: list[str] = []
 
 
 class UserOut(ORM):

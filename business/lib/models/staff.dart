@@ -59,10 +59,22 @@ class ClientLookup {
 }
 
 class Washer {
-  Washer({required this.id, required this.fullName});
+  Washer({required this.id, required this.fullName, this.firstName = '', this.lastName = '', this.phone,
+      this.commissionRate = 0, this.isActive = true});
   final int id;
   final String fullName;
-  factory Washer.fromJson(Map<String, dynamic> j) => Washer(id: j['id'], fullName: j['full_name']);
+  final String firstName;
+  final String lastName;
+  final String? phone;
+  final double commissionRate;
+  final bool isActive;
+
+  String get initial => fullName.isEmpty ? '?' : fullName[0];
+
+  factory Washer.fromJson(Map<String, dynamic> j) => Washer(
+        id: j['id'], fullName: j['full_name'], firstName: j['first_name'] ?? '', lastName: j['last_name'] ?? '',
+        phone: j['phone'], commissionRate: toDouble(j['commission_rate']), isActive: j['is_active'] ?? true,
+      );
 }
 
 /// Lavage tel qu'affiché dans l'historique du centre.

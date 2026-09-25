@@ -2,7 +2,7 @@ import { Injectable, computed, inject, signal } from '@angular/core';
 import { Router } from '@angular/router';
 import { Observable, tap } from 'rxjs';
 import { ApiService } from './api.service';
-import { Me, TokenResponse } from './models';
+import { Me, Permission, TokenResponse } from './models';
 
 const TOKEN_KEY = 'lavpro.token';
 const CENTER_KEY = 'lavpro.center';
@@ -33,6 +33,11 @@ export class AuthService {
   });
   readonly membership = computed(() => this.memberships().find(m => m.center_id === this.centerId()) ?? null);
   readonly isOwner = computed(() => this.isSuperadmin() || this.membership()?.role === 'owner');
+
+  /** Le gestionnaire a-t-il ce droit dans le centre courant ? (propriétaire et super-admin : tous) */
+  can(permission: Permission): boolean {
+    return this.isOwner() || (this.membership()?.permissions ?? []).includes(permission);
+  }
 
   login(email: string, password: string): Observable<TokenResponse> {
     return this.api.post<TokenResponse>('/auth/login', { email, password }).pipe(tap(r => this.setSession(r)));

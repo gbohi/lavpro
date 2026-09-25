@@ -1,13 +1,20 @@
 import 'json.dart';
 
 class Membership {
-  Membership({required this.centerId, required this.centerName, required this.role});
+  Membership({required this.centerId, required this.centerName, required this.role, this.permissions = const []});
   final int centerId;
   final String centerName;
   final String role;
+  /// Droits du gestionnaire (manage_team, manage_washers, manage_catalog, manage_rewards, view_reports,
+  /// adjust_points, cancel_washes, manage_settings). Un propriétaire a tous les droits.
+  final List<String> permissions;
 
-  factory Membership.fromJson(Map<String, dynamic> j) =>
-      Membership(centerId: j['center_id'], centerName: j['center_name'], role: j['role']);
+  bool get isOwner => role == 'owner';
+  bool can(String permission) => isOwner || permissions.contains(permission);
+
+  factory Membership.fromJson(Map<String, dynamic> j) => Membership(
+      centerId: j['center_id'], centerName: j['center_name'], role: j['role'],
+      permissions: List<String>.from(j['permissions'] ?? const []));
 }
 
 class AppUser {

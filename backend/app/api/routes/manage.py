@@ -8,7 +8,19 @@ from fastapi import APIRouter, HTTPException, Query
 from fastapi.responses import StreamingResponse
 from sqlalchemy import func, or_, select
 
-from app.api.deps import DB, Ctx, OwnerCtx, apply_patch
+from app.api.deps import (
+    DB,
+    CancelCtx,
+    CatalogCtx,
+    Ctx,
+    PointsCtx,
+    ReportsCtx,
+    RewardsCtx,
+    SettingsCtx,
+    TeamCtx,
+    WashersCtx,
+    apply_patch,
+)
 from app.api.routes.auth import create_user
 from app.api.serializers import booking_out, member_out, redemption_out, wash_out
 from app.db import utcnow
@@ -17,6 +29,7 @@ from app.models import (
     BookingStatus,
     CenterMember,
     LoyaltyAccount,
+    MemberRole,
     PointTransaction,
     PricingRule,
     Promotion,
@@ -72,7 +85,9 @@ from app.schemas.center import (
     WasherOut,
     WasherUpdate,
 )
+from app.core.permissions import DEFAULT_MANAGER_PERMISSIONS, PERMISSIONS, clean
 from app.services import stats as stats_service
+from app.services.platform_settings import get_setting
 from app.services.loyalty import (
     add_points,
     cancel_redemption,
@@ -114,7 +129,7 @@ def get_center(ctx: Ctx):
 
 
 @router.patch("", response_model=CenterOut)
-def update_center(body: CenterUpdate, ctx: Ctx, db: DB):
+def update_center(body: CenterUpdate, ctx: SettingsCtx, db: DB):
     data = body.model_dump(exclude_unset=True)
     if "opening_hours" in data and data["opening_hours"] is not None:
         data["opening_hours"] = [d if isinstance(d, dict) else d.model_dump() for d in data["opening_hours"]]
@@ -147,8 +162,32 @@ def list_members(ctx: Ctx, db: DB):
     return [member_out(m) for m in db.scalars(select(CenterMember).where(CenterMember.center_id == ctx.center.id))]
 
 
+def _check_grant(ctx, role: MemberRole, permissions: list[str]) -> None:
+    """Un gestionnaire (non propriétaire) ne peut ni nommer de propriétaire ni accorder un droit qu'il n'a pas."""
+    if ctx.is_owner:
+        return
+    if role == MemberRole.owner:
+        raise HTTPException(403, "Seul un propriétaire peut nommer un co-propriétaire")
+    extra = set(permissions) - set(ctx.permissions)
+    if extra:
+        labels = ", ".join(PERMISSIONS[p]["label"] for p in clean(list(extra)))
+        raise HTTPException(403, f"Vous ne pouvez pas accorder des droits que vous n'avez pas : {labels}")
+
+
+@router.get("/permissions")
+def permissions_catalog(ctx: Ctx):
+    """Catalogue des droits attribuables aux gestionnaires et droits de l'utilisateur courant."""
+    return {"permissions": [{"key": k, **v} for k, v in PERMISSIONS.items()],
+            "mine": clean(list(ctx.permissions)), "is_owner": ctx.is_owner}
+
+
 @router.post("/members", response_model=MemberOut, status_code=201)
-def add_member(body: MemberCreate, ctx: OwnerCtx, db: DB):
+def add_member(body: MemberCreate, ctx: TeamCtx, db: DB):
+    perms = clean(body.permissions if body.permissions is not None
+                  else get_setting(db, "members.default_permissions", DEFAULT_MANAGER_PERMISSIONS))
+    if not ctx.is_owner and body.permissions is None:
+        perms = [p for p in perms if p in ctx.permissions]  # défauts limités à ses propres droits
+    _check_grant(ctx, body.role, perms)
     user = db.scalar(select(User).where(User.email == body.email.lower()))
     if user is None:
         if not body.password:
@@ -159,7 +198,7 @@ def add_member(body: MemberCreate, ctx: OwnerCtx, db: DB):
         user.role = UserRole.staff
     if db.scalar(select(CenterMember).where(CenterMember.center_id == ctx.center.id, CenterMember.user_id == user.id)):
         raise HTTPException(409, "Cette personne fait déjà partie de l'équipe")
-    m = CenterMember(center_id=ctx.center.id, user_id=user.id, role=body.role)
+    m = CenterMember(center_id=ctx.center.id, user_id=user.id, role=body.role, permissions=perms)
     db.add(m)
     notify(db, user, "Bienvenue dans l'équipe", f"Vous êtes désormais gestionnaire de {ctx.center.name}.",
            type_="team", center_id=ctx.center.id, push=False)
@@ -169,20 +208,34 @@ def add_member(body: MemberCreate, ctx: OwnerCtx, db: DB):
 
 
 @router.patch("/members/{member_id}", response_model=MemberOut)
-def update_member(member_id: int, body: MemberUpdate, ctx: OwnerCtx, db: DB):
+def update_member(member_id: int, body: MemberUpdate, ctx: TeamCtx, db: DB):
     m = _own(db.get(CenterMember, member_id), ctx, "Membre")
     if m.user_id == ctx.user.id:
         raise HTTPException(400, "Vous ne pouvez pas modifier votre propre accès")
-    apply_patch(m, body)
+    if not ctx.is_owner and m.role == MemberRole.owner:
+        raise HTTPException(403, "Seul un propriétaire peut modifier un propriétaire")
+    data = body.model_dump(exclude_unset=True)
+    if "permissions" in data:
+        data["permissions"] = clean(data["permissions"])
+        # un gestionnaire ne peut ni accorder ni retirer un droit qu'il ne possède pas lui-même
+        if not ctx.is_owner:
+            changed = set(data["permissions"]) ^ set(m.permissions or [])
+            if changed - set(ctx.permissions):
+                raise HTTPException(403, "Vous ne pouvez modifier que les droits que vous possédez vous-même")
+    _check_grant(ctx, data.get("role", m.role), [])
+    for k, v in data.items():
+        setattr(m, k, v)
     db.commit()
     return member_out(m)
 
 
 @router.delete("/members/{member_id}", status_code=204)
-def remove_member(member_id: int, ctx: OwnerCtx, db: DB):
+def remove_member(member_id: int, ctx: TeamCtx, db: DB):
     m = _own(db.get(CenterMember, member_id), ctx, "Membre")
     if m.user_id == ctx.user.id:
         raise HTTPException(400, "Vous ne pouvez pas vous retirer vous-même")
+    if not ctx.is_owner and m.role == MemberRole.owner:
+        raise HTTPException(403, "Seul un propriétaire peut retirer un propriétaire")
     db.delete(m)
     db.commit()
 
@@ -197,7 +250,7 @@ def list_washers(ctx: Ctx, db: DB, active_only: bool = False):
 
 
 @router.post("/washers", response_model=WasherOut, status_code=201)
-def add_washer(body: WasherIn, ctx: Ctx, db: DB):
+def add_washer(body: WasherIn, ctx: WashersCtx, db: DB):
     w = Washer(center_id=ctx.center.id, **body.model_dump())
     db.add(w)
     db.commit()
@@ -205,7 +258,7 @@ def add_washer(body: WasherIn, ctx: Ctx, db: DB):
 
 
 @router.patch("/washers/{washer_id}", response_model=WasherOut)
-def update_washer(washer_id: int, body: WasherUpdate, ctx: Ctx, db: DB):
+def update_washer(washer_id: int, body: WasherUpdate, ctx: WashersCtx, db: DB):
     w = _own(db.get(Washer, washer_id), ctx, "Laveur")
     apply_patch(w, body)
     db.commit()
@@ -213,7 +266,7 @@ def update_washer(washer_id: int, body: WasherUpdate, ctx: Ctx, db: DB):
 
 
 @router.delete("/washers/{washer_id}", status_code=204)
-def delete_washer(washer_id: int, ctx: Ctx, db: DB):
+def delete_washer(washer_id: int, ctx: WashersCtx, db: DB):
     w = _own(db.get(Washer, washer_id), ctx, "Laveur")
     if db.scalar(select(Wash.id).where(Wash.washer_id == w.id).limit(1)):
         w.is_active = False  # historique conservé
@@ -230,7 +283,7 @@ def list_vehicle_types(ctx: Ctx, db: DB):
 
 
 @router.post("/vehicle-types", response_model=VehicleTypeOut, status_code=201)
-def add_vehicle_type(body: VehicleTypeIn, ctx: Ctx, db: DB):
+def add_vehicle_type(body: VehicleTypeIn, ctx: CatalogCtx, db: DB):
     v = VehicleType(center_id=ctx.center.id, **body.model_dump())
     db.add(v)
     db.commit()
@@ -238,7 +291,7 @@ def add_vehicle_type(body: VehicleTypeIn, ctx: Ctx, db: DB):
 
 
 @router.patch("/vehicle-types/{item_id}", response_model=VehicleTypeOut)
-def update_vehicle_type(item_id: int, body: VehicleTypeUpdate, ctx: Ctx, db: DB):
+def update_vehicle_type(item_id: int, body: VehicleTypeUpdate, ctx: CatalogCtx, db: DB):
     v = _own(db.get(VehicleType, item_id), ctx, "Type de véhicule")
     apply_patch(v, body)
     db.commit()
@@ -246,7 +299,7 @@ def update_vehicle_type(item_id: int, body: VehicleTypeUpdate, ctx: Ctx, db: DB)
 
 
 @router.delete("/vehicle-types/{item_id}", status_code=204)
-def delete_vehicle_type(item_id: int, ctx: Ctx, db: DB):
+def delete_vehicle_type(item_id: int, ctx: CatalogCtx, db: DB):
     v = _own(db.get(VehicleType, item_id), ctx, "Type de véhicule")
     used = db.scalar(select(Wash.id).where(Wash.vehicle_type_id == v.id).limit(1)) or \
         db.scalar(select(Booking.id).where(Booking.vehicle_type_id == v.id).limit(1))
@@ -265,7 +318,7 @@ def list_services(ctx: Ctx, db: DB):
 
 
 @router.post("/services", response_model=ServiceTypeOut, status_code=201)
-def add_service(body: ServiceTypeIn, ctx: Ctx, db: DB):
+def add_service(body: ServiceTypeIn, ctx: CatalogCtx, db: DB):
     s = ServiceType(center_id=ctx.center.id, **body.model_dump())
     db.add(s)
     db.commit()
@@ -273,7 +326,7 @@ def add_service(body: ServiceTypeIn, ctx: Ctx, db: DB):
 
 
 @router.patch("/services/{item_id}", response_model=ServiceTypeOut)
-def update_service(item_id: int, body: ServiceTypeUpdate, ctx: Ctx, db: DB):
+def update_service(item_id: int, body: ServiceTypeUpdate, ctx: CatalogCtx, db: DB):
     s = _own(db.get(ServiceType, item_id), ctx, "Service")
     apply_patch(s, body)
     db.commit()
@@ -281,7 +334,7 @@ def update_service(item_id: int, body: ServiceTypeUpdate, ctx: Ctx, db: DB):
 
 
 @router.delete("/services/{item_id}", status_code=204)
-def delete_service(item_id: int, ctx: Ctx, db: DB):
+def delete_service(item_id: int, ctx: CatalogCtx, db: DB):
     s = _own(db.get(ServiceType, item_id), ctx, "Service")
     used = db.scalar(select(Wash.id).where(Wash.service_type_id == s.id).limit(1)) or \
         db.scalar(select(Booking.id).where(Booking.service_type_id == s.id).limit(1))
@@ -299,7 +352,7 @@ def list_pricing(ctx: Ctx, db: DB):
 
 
 @router.put("/pricing", response_model=list[PricingRuleOut])
-def save_pricing(body: PricingBulkIn, ctx: Ctx, db: DB):
+def save_pricing(body: PricingBulkIn, ctx: CatalogCtx, db: DB):
     """Enregistre la matrice prix / points (service x type de véhicule)."""
     services = {s.id for s in db.scalars(select(ServiceType).where(ServiceType.center_id == ctx.center.id))}
     vehicles = {v.id for v in db.scalars(select(VehicleType).where(VehicleType.center_id == ctx.center.id))}
@@ -350,7 +403,7 @@ def _apply_reward(db, ctx, reward: Reward, data: dict) -> None:
 
 
 @router.post("/rewards", response_model=RewardOut, status_code=201)
-def add_reward(body: RewardIn, ctx: Ctx, db: DB):
+def add_reward(body: RewardIn, ctx: RewardsCtx, db: DB):
     r = Reward(center_id=ctx.center.id)
     db.add(r)
     _apply_reward(db, ctx, r, body.model_dump())
@@ -360,7 +413,7 @@ def add_reward(body: RewardIn, ctx: Ctx, db: DB):
 
 
 @router.patch("/rewards/{item_id}", response_model=RewardOut)
-def update_reward(item_id: int, body: RewardUpdate, ctx: Ctx, db: DB):
+def update_reward(item_id: int, body: RewardUpdate, ctx: RewardsCtx, db: DB):
     r = _own(db.get(Reward, item_id), ctx, "Récompense")
     _apply_reward(db, ctx, r, body.model_dump(exclude_unset=True))
     db.commit()
@@ -369,7 +422,7 @@ def update_reward(item_id: int, body: RewardUpdate, ctx: Ctx, db: DB):
 
 
 @router.delete("/rewards/{item_id}", status_code=204)
-def delete_reward(item_id: int, ctx: Ctx, db: DB):
+def delete_reward(item_id: int, ctx: RewardsCtx, db: DB):
     r = _own(db.get(Reward, item_id), ctx, "Récompense")
     if db.scalar(select(Redemption.id).where(Redemption.reward_id == r.id).limit(1)):
         r.is_active = False
@@ -391,7 +444,7 @@ def list_promotions(ctx: Ctx, db: DB):
 
 
 @router.post("/promotions", response_model=PromotionOut, status_code=201)
-def add_promotion(body: PromotionIn, ctx: Ctx, db: DB):
+def add_promotion(body: PromotionIn, ctx: RewardsCtx, db: DB):
     if body.ends_at <= body.starts_at:
         raise HTTPException(400, "La date de fin doit être postérieure à la date de début")
     data = body.model_dump()
@@ -409,7 +462,7 @@ def add_promotion(body: PromotionIn, ctx: Ctx, db: DB):
 
 
 @router.patch("/promotions/{item_id}", response_model=PromotionOut)
-def update_promotion(item_id: int, body: PromotionUpdate, ctx: Ctx, db: DB):
+def update_promotion(item_id: int, body: PromotionUpdate, ctx: RewardsCtx, db: DB):
     p = _own(db.get(Promotion, item_id), ctx, "Promotion")
     apply_patch(p, body)
     for f in ("starts_at", "ends_at"):
@@ -421,7 +474,7 @@ def update_promotion(item_id: int, body: PromotionUpdate, ctx: Ctx, db: DB):
 
 
 @router.delete("/promotions/{item_id}", status_code=204)
-def delete_promotion(item_id: int, ctx: Ctx, db: DB):
+def delete_promotion(item_id: int, ctx: RewardsCtx, db: DB):
     p = _own(db.get(Promotion, item_id), ctx, "Promotion")
     db.delete(p)
     db.commit()
@@ -493,7 +546,7 @@ def client_transactions(user_id: int, ctx: Ctx, db: DB):
 
 
 @router.post("/points/adjust", response_model=TransactionOut)
-def adjust_points(body: PointsAdjustIn, ctx: Ctx, db: DB):
+def adjust_points(body: PointsAdjustIn, ctx: PointsCtx, db: DB):
     user = db.get(User, body.user_id)
     if user is None:
         raise HTTPException(404, "Client introuvable")
@@ -544,7 +597,7 @@ def list_washes(ctx: Ctx, db: DB, date_from: date | None = None, date_to: date |
 
 
 @router.delete("/washes/{wash_id}", status_code=204)
-def cancel_wash(wash_id: int, ctx: OwnerCtx, db: DB):
+def cancel_wash(wash_id: int, ctx: CancelCtx, db: DB):
     """Annule un lavage saisi par erreur (retire les points attribués)."""
     w = _own(db.get(Wash, wash_id), ctx, "Lavage")
     if w.user_id and w.points_earned:
@@ -560,7 +613,7 @@ def cancel_wash(wash_id: int, ctx: OwnerCtx, db: DB):
 
 
 @router.get("/washes/export")
-def export_washes(ctx: Ctx, db: DB, date_from: date | None = None, date_to: date | None = None,
+def export_washes(ctx: ReportsCtx, db: DB, date_from: date | None = None, date_to: date | None = None,
                   washer_id: int | None = None):
     start, end = _period(ctx, date_from, date_to)
     buf = io.StringIO()
@@ -644,13 +697,13 @@ def update_booking(booking_id: int, body: BookingStatusUpdate, ctx: Ctx, db: DB)
 
 # ---- Statistiques & rapports ------------------------------------------------
 @router.get("/stats/dashboard")
-def dashboard(ctx: Ctx, db: DB, date_from: date | None = None, date_to: date | None = None):
+def dashboard(ctx: ReportsCtx, db: DB, date_from: date | None = None, date_to: date | None = None):
     start, end = _period(ctx, date_from, date_to)
     return stats_service.dashboard(db, ctx.center, start, end)
 
 
 @router.get("/stats/washers")
-def washers_report(ctx: Ctx, db: DB, date_from: date | None = None, date_to: date | None = None):
+def washers_report(ctx: ReportsCtx, db: DB, date_from: date | None = None, date_to: date | None = None):
     """Point de lavage par laveur."""
     start, end = _period(ctx, date_from, date_to)
     data = stats_service.dashboard(db, ctx.center, start, end)

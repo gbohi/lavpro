@@ -11,7 +11,7 @@ interface EditableSetting extends AppSetting { draft: string; kind: 'bool' | 'nu
 
 const GROUPS: Record<string, string> = {
   general: 'Général', referral: 'Parrainage', eco: 'Mode Écolo', reminders: 'Rappels intelligents',
-  weather: 'Météo', booking: 'Réservation', centers: 'Recherche de centres', onboarding: 'Modèles pour nouveaux centres',
+  weather: 'Météo', booking: 'Réservation', team: 'Équipe', centers: 'Recherche de centres', onboarding: 'Modèles pour nouveaux centres',
 };
 
 @Component({

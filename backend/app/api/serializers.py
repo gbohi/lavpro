@@ -1,16 +1,21 @@
 """Conversion des entités en schémas de sortie enrichis."""
 
-from app.models import Booking, CenterMember, Redemption, User, Wash
+from app.core.permissions import PERMISSIONS, clean
+from app.models import Booking, CenterMember, MemberRole, Redemption, User, Wash
 from app.schemas.activity import BookingOut, RedemptionOut, WashOut
 from app.schemas.auth import MeOut, MembershipOut, UserOut
 from app.schemas.center import MemberOut
 from app.services.loyalty import QR_PREFIX
 
 
+def member_permissions(m: CenterMember) -> list[str]:
+    return list(PERMISSIONS) if m.role == MemberRole.owner else clean(m.permissions)
+
+
 def me_out(user: User) -> MeOut:
     data = UserOut.model_validate(user).model_dump()
     return MeOut(**data, qr_payload=f"{QR_PREFIX}{user.qr_token}", memberships=[
-        MembershipOut(center_id=m.center_id, center_name=m.center.name, role=m.role)
+        MembershipOut(center_id=m.center_id, center_name=m.center.name, role=m.role, permissions=member_permissions(m))
         for m in user.memberships if m.is_active
     ])
 
@@ -50,6 +55,7 @@ def booking_out(b: Booking) -> BookingOut:
 
 
 def member_out(m: CenterMember) -> MemberOut:
-    return MemberOut(id=m.id, user_id=m.user_id, role=m.role, is_active=m.is_active, email=m.user.email,
+    return MemberOut(id=m.id, user_id=m.user_id, role=m.role, permissions=member_permissions(m), is_active=m.is_active,
+                     email=m.user.email,
                      first_name=m.user.first_name, last_name=m.user.last_name, phone=m.user.phone,
                      created_at=m.created_at)

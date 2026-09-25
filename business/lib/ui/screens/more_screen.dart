@@ -1,10 +1,22 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:lavpro_core/lavpro_core.dart';
 
 import '../../state/providers.dart';
 import '../widgets/brand.dart';
 import '../widgets/center_header.dart';
+
+const permissionLabels = {
+  'manage_team': "Gérer l'équipe",
+  'manage_washers': 'Gérer les laveurs',
+  'manage_catalog': 'Services et prix',
+  'manage_rewards': 'Récompenses et promotions',
+  'view_reports': "Chiffre d'affaires et rapports",
+  'adjust_points': 'Ajuster les points',
+  'cancel_washes': 'Annuler un lavage',
+  'manage_settings': 'Paramètres du centre',
+};
 
 class MoreScreen extends ConsumerWidget {
   const MoreScreen({super.key});
@@ -55,6 +67,38 @@ class MoreScreen extends ConsumerWidget {
                   ]),
                 ),
               ],
+              if (can(ref, 'manage_washers')) ...[
+                const SectionHeader('Mon équipe'),
+                AppCard(
+                  onTap: () => context.push('/washers'),
+                  child: const Row(children: [
+                    IconBadge(Icons.engineering_rounded, gradient: AppColors.ecoGradient, size: 40),
+                    SizedBox(width: 14),
+                    Expanded(
+                      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                        Text('Laveurs', style: TextStyle(fontWeight: FontWeight.w800)),
+                        Text('Ajouter, modifier, désactiver', style: TextStyle(fontSize: 12)),
+                      ]),
+                    ),
+                    Icon(Icons.chevron_right_rounded),
+                  ]),
+                ),
+              ],
+              const SectionHeader('Mes droits'),
+              AppCard(
+                padding: const EdgeInsets.all(16),
+                child: membership == null
+                    ? const SizedBox.shrink()
+                    : Wrap(spacing: 6, runSpacing: 6, children: [
+                        if (membership.isOwner)
+                          const Pill('Tous les droits (propriétaire)', icon: Icons.verified_rounded)
+                        else if (membership.permissions.isEmpty)
+                          const Pill('Validation des lavages uniquement', icon: Icons.task_alt_rounded)
+                        else
+                          for (final p in membership.permissions)
+                            Pill(permissionLabels[p] ?? p, icon: Icons.check_rounded, color: AppColors.eco),
+                      ]),
+              ),
               const SectionHeader('Préférences'),
               AppCard(
                 padding: const EdgeInsets.symmetric(vertical: 6),
@@ -81,8 +125,8 @@ class MoreScreen extends ConsumerWidget {
                   SizedBox(width: 12),
                   Expanded(
                     child: Text(
-                      "Services, prix et points, récompenses, promotions, équipe, laveurs et rapports détaillés se "
-                      "configurent depuis l'Espace Pro web.",
+                      "Services, prix et points, récompenses, promotions, équipe et rapports détaillés se "
+                      "configurent depuis l'Espace Pro web, selon vos droits.",
                       style: TextStyle(fontWeight: FontWeight.w600, height: 1.4),
                     ),
                   ),

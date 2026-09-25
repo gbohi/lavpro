@@ -1,7 +1,10 @@
 export type MemberRole = 'owner' | 'manager';
 export type UserRole = 'client' | 'staff' | 'superadmin';
 
-export interface Membership { center_id: number; center_name: string; role: MemberRole; }
+export type Permission = 'manage_team' | 'manage_washers' | 'manage_catalog' | 'manage_rewards' | 'view_reports'
+  | 'adjust_points' | 'cancel_washes' | 'manage_settings';
+export interface PermissionDef { key: Permission; label: string; description: string; }
+export interface Membership { center_id: number; center_name: string; role: MemberRole; permissions: Permission[]; }
 
 export interface Me {
   id: number; email: string; phone: string | null; first_name: string; last_name: string;
@@ -60,7 +63,7 @@ export interface Promotion {
 }
 
 export interface Member {
-  id: number; user_id: number; role: MemberRole; is_active: boolean; email: string; first_name: string;
+  id: number; user_id: number; role: MemberRole; permissions: Permission[]; is_active: boolean; email: string; first_name: string;
   last_name: string; phone: string | null; created_at: string;
 }
 

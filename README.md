@@ -29,7 +29,13 @@ Aucune donnée métier n'est codée en dur :
 
 **Clients (mobile)** : inscription unique avec QR code et code membre, soldes de points par centre, historique, récompenses et codes de retrait, centres les plus proches (liste et carte) avec affluence en temps réel, réservation de créneaux, suggestions selon la fréquence de visite et la météo (Open-Meteo), parrainage, Mode Écolo, notifications, thème clair/sombre, interface responsive (téléphone, tablette, desktop).
 
-**Gérants (Lavpro Business, mobile)** : tableau de bord du jour / 7 j / 30 j (lavages, chiffre d'affaires, clients, fidélité, heures d'affluence, point par laveur), réglage de la file d'attente visible en direct par les clients, scan du QR client ou code membre, validation du lavage (véhicule, service, laveur), client de passage, remise des récompenses, réservations du jour (accueillir, absent, annuler), historique des lavages du jour, multi-centres.
+**Droits des gestionnaires** : le propriétaire choisit pour chaque gestionnaire ce qu'il peut faire (gérer l'équipe,
+les laveurs, les services et prix, les récompenses et promotions, voir le chiffre d'affaires et les rapports, ajuster
+les points, annuler un lavage, modifier les paramètres). Valider les lavages, scanner, remettre les récompenses,
+gérer la file et les réservations restent ouverts à tous. Un gestionnaire ne peut jamais accorder un droit qu'il
+n'a pas. Droits par défaut réglables par le super-admin.
+
+**Gérants (Lavpro Business, mobile)** : tableau de bord du jour / 7 j / 30 j (lavages, chiffre d'affaires, clients, fidélité, heures d'affluence, point par laveur), réglage de la file d'attente visible en direct par les clients, scan du QR client ou code membre, validation du lavage (véhicule, service, laveur), client de passage, remise des récompenses, réservations du jour (accueillir, absent, annuler), historique des lavages du jour, gestion des laveurs, affichage selon les droits, multi-centres.
 
 **Centres (web)** : inscription du centre, équipe de gestionnaires (propriétaire / gestionnaire), laveurs (sans compte) avec suivi de qui a lavé quoi, validation d'un lavage par scan QR (caméra ou douchette) ou code membre, client de passage, remise des récompenses, file d'attente en direct, tableau de bord (lavages/jour, CA, services populaires, taux de fidélité, heures d'affluence, performance des laveurs), rapports par laveur avec commissions, export CSV.
 

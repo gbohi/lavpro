@@ -6,6 +6,7 @@ from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app.core.permissions import ALL_PERMISSIONS, PERMISSIONS
 from app.core.security import decode_access_token
 from app.db import get_db
 from app.models import Center, CenterMember, MemberRole, User, UserRole
@@ -49,10 +50,14 @@ class CenterContext(BaseModel):
     center: Center
     user: User
     role: MemberRole | None  # None = super-admin
+    permissions: frozenset[str] = frozenset()
 
     @property
     def is_owner(self) -> bool:
         return self.role in (None, MemberRole.owner)
+
+    def can(self, permission: str) -> bool:
+        return self.is_owner or permission in self.permissions
 
 
 def center_context(db: DB, user: CurrentUser, center_id: Annotated[int, Path()]) -> CenterContext:
@@ -60,13 +65,14 @@ def center_context(db: DB, user: CurrentUser, center_id: Annotated[int, Path()])
     if center is None:
         raise HTTPException(404, "Centre introuvable")
     if user.role == UserRole.superadmin:
-        return CenterContext(center=center, user=user, role=None)
+        return CenterContext(center=center, user=user, role=None, permissions=ALL_PERMISSIONS)
     member = db.scalar(select(CenterMember).where(CenterMember.center_id == center_id,
                                                   CenterMember.user_id == user.id,
                                                   CenterMember.is_active.is_(True)))
     if member is None:
         raise HTTPException(status.HTTP_403_FORBIDDEN, "Vous n'êtes pas gestionnaire de ce centre")
-    return CenterContext(center=center, user=user, role=member.role)
+    perms = ALL_PERMISSIONS if member.role == MemberRole.owner else frozenset(member.permissions or [])
+    return CenterContext(center=center, user=user, role=member.role, permissions=perms)
 
 
 Ctx = Annotated[CenterContext, Depends(center_context)]
@@ -79,6 +85,28 @@ def require_owner(ctx: Ctx) -> CenterContext:
 
 
 OwnerCtx = Annotated[CenterContext, Depends(require_owner)]
+
+
+def need(permission: str):
+    """Dépendance : le gestionnaire doit disposer de ce droit (le propriétaire a tous les droits)."""
+    label = PERMISSIONS[permission]["label"]
+
+    def check(ctx: Ctx) -> CenterContext:
+        if not ctx.can(permission):
+            raise HTTPException(status.HTTP_403_FORBIDDEN, f"Droit requis : « {label} »")
+        return ctx
+
+    return Depends(check)
+
+
+TeamCtx = Annotated[CenterContext, need("manage_team")]
+WashersCtx = Annotated[CenterContext, need("manage_washers")]
+CatalogCtx = Annotated[CenterContext, need("manage_catalog")]
+RewardsCtx = Annotated[CenterContext, need("manage_rewards")]
+ReportsCtx = Annotated[CenterContext, need("view_reports")]
+PointsCtx = Annotated[CenterContext, need("adjust_points")]
+CancelCtx = Annotated[CenterContext, need("cancel_washes")]
+SettingsCtx = Annotated[CenterContext, need("manage_settings")]
 
 
 def apply_patch(obj, patch: BaseModel) -> None:

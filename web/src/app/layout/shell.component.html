@@ -1,6 +1,6 @@
 <div class="shell" [class.menu-open]="menuOpen()">
   <aside class="sidebar">
-    <a class="brand" routerLink="/dashboard">
+    <a class="brand" routerLink="/">
       <span class="logo"><span class="icon filled">water_drop</span></span>
       <span><strong>Lavpro</strong><small>Espace Pro</small></span>
     </a>
@@ -9,7 +9,7 @@
       <a routerLink="/validate" class="cta">
         <span class="icon">qr_code_scanner</span> Scanner un client
       </a>
-      @for (g of groups; track g.title) {
+      @for (g of visibleGroups(); track g.title) {
         <div class="group">{{ g.title }}</div>
         @for (item of g.items; track item.path) {
           <a class="nav" [routerLink]="item.path" routerLinkActive="active">

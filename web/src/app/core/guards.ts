@@ -2,6 +2,7 @@ import { inject } from '@angular/core';
 import { CanActivateFn, Router } from '@angular/router';
 import { catchError, map, of } from 'rxjs';
 import { AuthService } from './auth.service';
+import { Permission } from './models';
 
 export const authGuard: CanActivateFn = () => {
   const auth = inject(AuthService);
@@ -27,3 +28,11 @@ export const superadminGuard: CanActivateFn = () => {
 
 export const guestGuard: CanActivateFn = () =>
   inject(AuthService).token() ? inject(Router).createUrlTree(['/']) : true;
+
+/** Accès réservé aux gestionnaires disposant de ce droit (sinon : écran de validation des lavages). */
+export function permissionGuard(permission: Permission): CanActivateFn {
+  return () => {
+    const auth = inject(AuthService);
+    return auth.can(permission) ? true : inject(Router).createUrlTree(['/validate']);
+  };
+}

@@ -61,6 +61,20 @@ class BusinessRepository {
   Future<Redemption> giveReward(int id, String idOrCode) async =>
       Redemption.fromJson(await api.post('${_m(id)}/redemptions/${Uri.encodeComponent(idOrCode)}/validate'));
 
+  // ---- Laveurs ------------------------------------------------------------------
+  Future<List<Washer>> allWashers(int id) async => parseList(await api.get<List>('${_m(id)}/washers'), Washer.fromJson);
+
+  Future<void> saveWasher(int id, {int? washerId, required String firstName, String lastName = '', String? phone,
+      double commissionRate = 0, bool isActive = true}) {
+    final body = {
+      'first_name': firstName, 'last_name': lastName, 'phone': (phone?.isEmpty ?? true) ? null : phone,
+      'commission_rate': commissionRate, 'is_active': isActive,
+    };
+    return washerId == null ? api.post('${_m(id)}/washers', body) : api.patch('${_m(id)}/washers/$washerId', body);
+  }
+
+  Future<void> deleteWasher(int id, int washerId) => api.delete('${_m(id)}/washers/$washerId');
+
   Future<List<StaffBooking>> bookings(int id, DateTime day) async =>
       parseList(await api.get<List>('${_m(id)}/bookings', query: {'day': _d(day)}), StaffBooking.fromJson);
 

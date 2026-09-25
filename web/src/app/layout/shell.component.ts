@@ -4,9 +4,9 @@ import { filter } from 'rxjs';
 import { AuthService } from '../core/auth.service';
 import { CenterApi } from '../core/center-api.service';
 import { CenterStore } from '../core/center-store.service';
-import { Occupancy } from '../core/models';
+import { Occupancy, Permission } from '../core/models';
 
-interface NavItem { path: string; label: string; icon: string; ownerOnly?: boolean; }
+interface NavItem { path: string; label: string; icon: string; perm?: Permission; anyOf?: Permission[]; }
 interface NavGroup { title: string; items: NavItem[]; }
 
 @Component({
@@ -29,24 +29,32 @@ export class ShellComponent implements OnInit, OnDestroy {
 
   readonly groups: NavGroup[] = [
     { title: 'Activité', items: [
-      { path: '/dashboard', label: 'Tableau de bord', icon: 'space_dashboard' },
+      { path: '/dashboard', label: 'Tableau de bord', icon: 'space_dashboard', perm: 'view_reports' },
       { path: '/validate', label: 'Valider un lavage', icon: 'qr_code_scanner' },
       { path: '/washes', label: 'Lavages', icon: 'local_car_wash' },
       { path: '/bookings', label: 'Réservations', icon: 'event_available' },
       { path: '/clients', label: 'Clients', icon: 'groups' },
     ] },
     { title: 'Fidélité', items: [
-      { path: '/rewards', label: 'Récompenses', icon: 'redeem' },
-      { path: '/promotions', label: 'Promotions', icon: 'campaign' },
+      { path: '/rewards', label: 'Récompenses', icon: 'redeem', perm: 'manage_rewards' },
+      { path: '/promotions', label: 'Promotions', icon: 'campaign', perm: 'manage_rewards' },
     ] },
     { title: 'Configuration', items: [
-      { path: '/catalog', label: 'Services & véhicules', icon: 'category' },
-      { path: '/pricing', label: 'Prix & points', icon: 'price_change' },
+      { path: '/catalog', label: 'Services & véhicules', icon: 'category', perm: 'manage_catalog' },
+      { path: '/pricing', label: 'Prix & points', icon: 'price_change', perm: 'manage_catalog' },
       { path: '/team', label: 'Équipe & laveurs', icon: 'badge' },
-      { path: '/reports', label: 'Rapports', icon: 'insights' },
-      { path: '/settings', label: 'Paramètres du centre', icon: 'tune' },
+      { path: '/reports', label: 'Rapports', icon: 'insights', perm: 'view_reports' },
+      { path: '/settings', label: 'Paramètres du centre', icon: 'tune', perm: 'manage_settings' },
     ] },
   ];
+
+  /** Menu filtré selon les droits du gestionnaire dans le centre courant. */
+  visibleGroups = computed(() => {
+    this.auth.membership();
+    return this.groups
+      .map(g => ({ ...g, items: g.items.filter(i => !i.perm || this.auth.can(i.perm)) }))
+      .filter(g => g.items.length);
+  });
 
   initials = computed(() => {
     const u = this.auth.user();
@@ -80,7 +88,7 @@ export class ShellComponent implements OnInit, OnDestroy {
 
   switchCenter(id: string): void {
     this.auth.selectCenter(Number(id));
-    this.router.navigate(['/dashboard']);
+    this.router.navigate([this.auth.can('view_reports') ? '/dashboard' : '/validate']);
   }
 
   cycleTheme(): void {
