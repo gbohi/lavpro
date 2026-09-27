@@ -11,6 +11,11 @@ from app.services.platform_settings import get_setting
 
 log = logging.getLogger("lavpro.weather")
 
+# Échecs récents par position : évite de réessayer (et d'attendre le délai réseau) pour chaque client
+# lorsque le service météo est indisponible pendant une tâche de rappels.
+_RETRY_AFTER = timedelta(minutes=10)
+_failed_until: dict[str, object] = {}
+
 
 def get_forecast(db: Session, lat: float, lng: float) -> list[dict] | None:
     """Prévisions journalières (Open-Meteo par défaut, sans clé API).
@@ -24,6 +29,8 @@ def get_forecast(db: Session, lat: float, lng: float) -> list[dict] | None:
     ttl = timedelta(minutes=int(get_setting(db, "weather.cache_minutes", 60)))
     if cache and utcnow() - cache.fetched_at < ttl:
         return cache.payload.get("days")
+    if (retry_at := _failed_until.get(key)) is not None and utcnow() < retry_at:
+        return cache.payload.get("days") if cache else None
     try:
         resp = httpx.get(get_settings().weather_api_url, params={
             "latitude": lat, "longitude": lng, "timezone": "auto", "forecast_days": 7,
@@ -33,7 +40,9 @@ def get_forecast(db: Session, lat: float, lng: float) -> list[dict] | None:
         daily = resp.json()["daily"]
     except (httpx.HTTPError, KeyError, ValueError) as exc:
         log.info("Météo indisponible: %s", exc)
+        _failed_until[key] = utcnow() + _RETRY_AFTER
         return cache.payload.get("days") if cache else None
+    _failed_until.pop(key, None)
     days = [
         {"date": d, "precipitation_mm": daily["precipitation_sum"][i] or 0,
          "rain_probability": (daily.get("precipitation_probability_max") or [0] * 7)[i] or 0,

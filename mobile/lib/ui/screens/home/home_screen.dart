@@ -365,6 +365,10 @@ class _AccountCard extends StatelessWidget {
                 : 'Encore ${a.nextRewardPoints! - a.balance} pts pour « ${a.nextRewardName} »',
             style: TextStyle(color: context.muted, fontSize: 12, fontWeight: FontWeight.w600),
           ),
+          if (a.nextExpiryAt != null && a.nextExpiryPoints > 0) ...[
+            const SizedBox(height: 8),
+            _ExpiryLine(a),
+          ],
         ]),
       );
 }
@@ -392,4 +396,32 @@ class _EcoTeaser extends StatelessWidget {
           ]),
         ),
       );
+}
+
+
+/// « ⏳ 150 pts expirent le 12 mars » — mis en avant quand l'échéance approche.
+class _ExpiryLine extends StatelessWidget {
+  const _ExpiryLine(this.a);
+  final LoyaltyAccount a;
+  @override
+  Widget build(BuildContext context) {
+    final soon = a.expiresWithin(30);
+    final color = soon ? AppColors.amber : context.muted;
+    return Container(
+      padding: soon ? const EdgeInsets.symmetric(horizontal: 10, vertical: 6) : EdgeInsets.zero,
+      decoration: soon
+          ? BoxDecoration(color: AppColors.amber.withValues(alpha: .12), borderRadius: BorderRadius.circular(10))
+          : null,
+      child: Row(children: [
+        Icon(Icons.hourglass_bottom_rounded, size: 15, color: color),
+        const SizedBox(width: 6),
+        Expanded(
+          child: Text(
+            '${fmtNum(a.nextExpiryPoints)} pts expirent le ${fmtDate(a.nextExpiryAt!)}',
+            style: TextStyle(color: color, fontSize: 12, fontWeight: FontWeight.w700),
+          ),
+        ),
+      ]),
+    );
+  }
 }

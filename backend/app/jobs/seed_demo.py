@@ -31,6 +31,7 @@ from app.models import (
 )
 from app.services.loyalty import record_wash
 from app.services.platform_settings import get_setting
+from app.services.points import lot_expiry
 
 FIRST = ["Aïcha", "Koffi", "Mariam", "Yao", "Fatou", "Jean", "Awa", "Moussa", "Clarisse", "Ibrahim", "Nadia", "Serge",
          "Aminata", "Didier", "Grâce", "Olivier", "Salimata", "Hervé", "Carine", "Bakary"]
@@ -49,6 +50,7 @@ def run() -> None:
         center = Center(name="Lavpro Démo – Cocody", slug="lavpro-demo", address="Boulevard Latrille",
                         city="Abidjan", country="Côte d'Ivoire", phone="+225 07 00 00 00", lat=5.3599, lng=-3.9870,
                         currency="XOF", timezone="Africa/Abidjan", capacity=3, welcome_points=10, points_payment_enabled=True,
+                        points_validity_months=12,
                         referral_referrer_points=50, referral_referee_points=25,
                         description="Lavage premium, à la main, avec des produits biodégradables.",
                         opening_hours=[{"day": d, "open": "07:30", "close": "20:00", "closed": False} for d in range(7)])
@@ -132,6 +134,8 @@ def run() -> None:
                     acc.created_at = when
                 for tx in db.scalars(select(PointTransaction).where(PointTransaction.wash_id == w.id)):
                     tx.created_at = when
+                    if tx.remaining:
+                        tx.expires_at = lot_expiry(center, when)
         center.current_queue = 2
         db.commit()
         n = db.scalar(select(User.id).where(User.email == "client@lavpro.app"))

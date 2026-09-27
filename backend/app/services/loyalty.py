@@ -27,6 +27,7 @@ from app.models import (
     Washer,
 )
 from app.services.notifications import notify
+from app.services.points import consume, lot_expiry, restore
 
 QR_PREFIX = "LAVPRO:"
 
@@ -53,8 +54,15 @@ def get_or_create_account(db: Session, user: User, center: Center) -> LoyaltyAcc
 
 
 def add_points(db: Session, account: LoyaltyAccount, points: int, type_: TransactionType, *, note: str | None = None,
-               wash_id: int | None = None, redemption_id: int | None = None,
-               created_by_id: int | None = None) -> PointTransaction:
+               wash_id: int | None = None, redemption_id: int | None = None, created_by_id: int | None = None,
+               prefer_lot: PointTransaction | None = None,
+               restore_from: PointTransaction | None = None) -> PointTransaction:
+    """Crédite ou débite des points.
+
+    Un crédit crée un lot (avec date d'expiration si le centre en fixe une) ; un débit consomme les lots
+    qui expirent le plus tôt (`prefer_lot` en premier). `restore_from` : débit annulé dont les lots
+    consommés sont restitués tels quels (même date d'expiration).
+    """
     account.balance += points
     if points > 0 and type_ != TransactionType.refund:
         account.total_earned += points
@@ -66,6 +74,14 @@ def add_points(db: Session, account: LoyaltyAccount, points: int, type_: Transac
         raise HTTPException(400, "Solde de points insuffisant")
     tx = PointTransaction(account_id=account.id, type=type_, points=points, note=note, wash_id=wash_id,
                           redemption_id=redemption_id, created_by_id=created_by_id)
+    if points > 0:
+        restored = restore(db, restore_from) if restore_from is not None else 0
+        fresh = points - restored  # points sans lot d'origine connu : nouveau lot
+        if fresh > 0:
+            tx.remaining = fresh
+            tx.expires_at = lot_expiry(account.center)
+    elif points < 0:
+        tx.consumed = consume(db, account.id, -points, prefer_lot)
     db.add(tx)
     return tx
 
@@ -324,8 +340,10 @@ def cancel_redemption(db: Session, redemption: Redemption, by: User | None = Non
     redemption.status = RedemptionStatus.cancelled
     center = db.get(Center, redemption.center_id)
     account = get_or_create_account(db, redemption.user, center)
+    debit = db.scalar(select(PointTransaction).where(PointTransaction.redemption_id == redemption.id,
+                                                     PointTransaction.type == TransactionType.redeem))
     add_points(db, account, redemption.points, TransactionType.refund, note="Annulation récompense",
-               redemption_id=redemption.id, created_by_id=by.id if by else None)
+               redemption_id=redemption.id, created_by_id=by.id if by else None, restore_from=debit)
     reward = db.get(Reward, redemption.reward_id)
     if reward and reward.stock is not None:
         reward.stock += 1

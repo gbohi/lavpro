@@ -115,7 +115,17 @@ class _CenterDetailScreenState extends ConsumerState<CenterDetailScreen> {
                     child: Row(children: [
                       const IconBadge(Icons.stars_rounded, gradient: AppColors.warmGradient),
                       const SizedBox(width: 14),
-                      Expanded(child: Text('Mon solde dans ce centre', style: TextStyle(color: context.muted, fontWeight: FontWeight.w600))),
+                      Expanded(
+                        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                          Text('Mon solde dans ce centre', style: TextStyle(color: context.muted, fontWeight: FontWeight.w600)),
+                          Text(
+                            c.pointsValidityMonths == null
+                                ? 'Vos points n\'expirent pas'
+                                : 'Points valables ${c.pointsValidityMonths} mois après chaque gain',
+                            style: TextStyle(color: context.muted, fontSize: 11),
+                          ),
+                        ]),
+                      ),
                       Text('${fmtNum(c.myBalance!)} pts', style: context.text.titleLarge?.copyWith(fontWeight: FontWeight.w800)),
                     ]),
                   ),

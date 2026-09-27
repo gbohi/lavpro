@@ -3,7 +3,7 @@ import 'json.dart';
 class LoyaltyAccount {
   LoyaltyAccount({required this.centerId, required this.centerName, this.centerLogo, required this.balance,
       required this.totalEarned, required this.totalSpent, required this.visits, this.lastVisit, this.nextRewardName,
-      this.nextRewardPoints});
+      this.nextRewardPoints, this.nextExpiryAt, this.nextExpiryPoints = 0, this.validityMonths});
   final int centerId;
   final String centerName;
   final String? centerLogo;
@@ -14,6 +14,15 @@ class LoyaltyAccount {
   final DateTime? lastVisit;
   final String? nextRewardName;
   final int? nextRewardPoints;
+  /// Prochaine échéance d'expiration de points et nombre de points concernés.
+  final DateTime? nextExpiryAt;
+  final int nextExpiryPoints;
+  /// Durée de validité des points dans ce centre (null = pas d'expiration).
+  final int? validityMonths;
+
+  /// Des points expirent dans moins de [days] jours.
+  bool expiresWithin(int days) =>
+      nextExpiryAt != null && nextExpiryPoints > 0 && nextExpiryAt!.difference(DateTime.now()).inDays < days;
 
   double get progress => nextRewardPoints == null || nextRewardPoints == 0
       ? 1 : (balance / nextRewardPoints!).clamp(0, 1).toDouble();
@@ -22,7 +31,8 @@ class LoyaltyAccount {
         centerId: j['center_id'], centerName: j['center_name'], centerLogo: j['center_logo_url'], balance: j['balance'],
         totalEarned: j['total_earned'], totalSpent: j['total_spent'], visits: j['visits'],
         lastVisit: parseDate(j['last_visit_at']), nextRewardName: j['next_reward_name'],
-        nextRewardPoints: j['next_reward_points'],
+        nextRewardPoints: j['next_reward_points'], nextExpiryAt: parseDate(j['next_expiry_at']),
+        nextExpiryPoints: j['next_expiry_points'] ?? 0, validityMonths: j['points_validity_months'],
       );
 }
 
@@ -123,23 +133,28 @@ class WashRecord {
 }
 
 class PointTx {
-  PointTx({required this.id, required this.type, required this.points, this.note, this.centerName, required this.createdAt});
+  PointTx({required this.id, required this.type, required this.points, this.note, this.centerName, required this.createdAt,
+      this.remaining = 0, this.expiresAt});
   final int id;
   final String type;
   final int points;
   final String? note;
   final String? centerName;
   final DateTime createdAt;
+  /// Crédit : points encore disponibles et date d'expiration.
+  final int remaining;
+  final DateTime? expiresAt;
 
   static const labels = {
     'earn': 'Lavage', 'redeem': 'Récompense', 'referral': 'Parrainage', 'welcome': 'Bienvenue', 'bonus': 'Cadeau',
     'adjust': 'Ajustement', 'refund': 'Remboursement', 'wash_payment': 'Lavage payé en points',
+    'expire': 'Points expirés',
   };
   String get label => labels[type] ?? type;
 
   factory PointTx.fromJson(Map<String, dynamic> j) => PointTx(
       id: j['id'], type: j['type'], points: j['points'], note: j['note'], centerName: j['center_name'],
-      createdAt: parseDate(j['created_at'])!);
+      createdAt: parseDate(j['created_at'])!, remaining: j['remaining'] ?? 0, expiresAt: parseDate(j['expires_at']));
 }
 
 class Booking {

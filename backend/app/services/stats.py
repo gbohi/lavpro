@@ -82,6 +82,7 @@ def dashboard(db: Session, center: Center, start: datetime, end: datetime) -> di
                            PointTransaction.created_at < end).group_by(PointTransaction.type)).all()
     tx_map = {t: int(v or 0) for t, v in tx}
     points_issued = sum(v for t, v in tx_map.items() if v > 0 and t != TransactionType.refund)
+    # Les points expirés ne sont pas comptés comme « utilisés » (voir points_expired)
     points_redeemed = (-tx_map.get(TransactionType.redeem, 0) - tx_map.get(TransactionType.wash_payment, 0)
                        - tx_map.get(TransactionType.refund, 0))
 
@@ -125,6 +126,7 @@ def dashboard(db: Session, center: Center, start: datetime, end: datetime) -> di
             "points_washes": sum(1 for w in free if w.payment_method == "points"),
             "offered_value": round(sum(w.discount for w in free), 2),
             "points_spent_on_washes": sum(w.points_spent for w in free),
+            "points_expired": -tx_map.get(TransactionType.expire, 0),
             "queue": center.current_queue,
         },
         "washes_per_day": list(per_day.values()),

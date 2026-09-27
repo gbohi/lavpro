@@ -78,10 +78,11 @@ import { PERIODS, daysAgo, download, isoDate } from '../../shared/period';
           <div class="card stat"><small>Récompenses remises</small><strong>{{ d.kpis.redemptions['used'] || 0 }}</strong></div>
           <div class="card stat"><small>Récompenses en attente</small><strong>{{ d.kpis.redemptions['pending'] || 0 }}</strong></div>
         </div>
-        <div class="grid grid-4 mt">
+        <div class="grid grid-3 mt">
           <div class="card stat"><small>Lavages offerts (récompense)</small><strong>{{ d.kpis.reward_washes }}</strong></div>
           <div class="card stat"><small>Lavages payés en points</small><strong>{{ d.kpis.points_washes }}</strong></div>
           <div class="card stat"><small>Points dépensés en lavages</small><strong>{{ d.kpis.points_spent_on_washes | number }}</strong></div>
+          <div class="card stat"><small>Points expirés</small><strong>{{ d.kpis.points_expired | number }}</strong></div>
           <div class="card stat"><small>Valeur des lavages offerts</small><strong>{{ d.kpis.offered_value | number:'1.0-0' }} {{ d.currency }}</strong></div>
         </div>
         <p class="small muted" style="margin-top:10px">La commission des laveurs est calculée sur le chiffre d'affaires + la valeur des lavages offerts qu'ils ont réalisés.</p>

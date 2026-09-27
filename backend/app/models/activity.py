@@ -117,6 +117,13 @@ class PointTransaction(Base):
     note: Mapped[str | None] = mapped_column(String(255))
     created_by_id: Mapped[int | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"))
     created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow, index=True)
+    # --- Lots de points (crédits) : points encore disponibles et date d'expiration (None = n'expire pas)
+    remaining: Mapped[int] = mapped_column(Integer, default=0, server_default="0")
+    expires_at: Mapped[datetime | None] = mapped_column(DateTime, index=True)
+    # Plus petit délai de relance (en jours) déjà notifié pour ce lot
+    expiry_reminded: Mapped[int | None] = mapped_column(Integer)
+    # --- Débits : lots consommés [{"lot": id, "points": n}] (permet de les restituer en cas d'annulation)
+    consumed: Mapped[list | None] = mapped_column(JSON)
 
     account: Mapped[LoyaltyAccount] = relationship()
 

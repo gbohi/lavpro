@@ -22,7 +22,7 @@ const GROUPS: Record<string, string> = {
     <div class="page">
       <div class="page-head">
         <div><h1>Administration de la plateforme</h1><p class="muted">Paramètres globaux, centres partenaires et tâches planifiées.</p></div>
-        <button class="btn" (click)="runReminders()"><span class="icon">notifications_active</span>Lancer les rappels maintenant</button>
+        <button class="btn" (click)="runReminders()"><span class="icon">notifications_active</span>Lancer les tâches quotidiennes</button>
       </div>
       @if (stats(); as s) {
         <div class="grid grid-4">
@@ -133,5 +133,8 @@ export class AdminComponent implements OnInit {
 
   toggle(c: AdminCenter): void { this.api.post(`/admin/centers/${c.id}/toggle`).subscribe(() => this.loadCenters()); }
   open(c: AdminCenter): void { this.auth.selectCenter(c.id); this.router.navigate(['/dashboard']); }
-  runReminders(): void { this.api.post<{ sent: number }>('/admin/jobs/reminders').subscribe(r => this.toast.success(`${r.sent} rappel(s) envoyé(s)`)); }
+  runReminders(): void {
+    this.api.post<{ wash_reminders: number; expiry_reminders: number; points_expired: number }>('/admin/jobs/reminders').subscribe(r =>
+      this.toast.success(`${r.wash_reminders} rappel(s) de lavage, ${r.expiry_reminders} relance(s) d'expiration, ${r.points_expired} point(s) expiré(s)`));
+  }
 }

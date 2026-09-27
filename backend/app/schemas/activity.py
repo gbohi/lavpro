@@ -30,6 +30,10 @@ class AccountOut(ORM):
     last_visit_at: datetime | None
     next_reward_name: str | None = None
     next_reward_points: int | None = None
+    # Expiration des points : prochaine échéance et points concernés (None si aucun point n'expire)
+    next_expiry_at: datetime | None = None
+    next_expiry_points: int = 0
+    points_validity_months: int | None = None
 
 
 class ClientLookupOut(ORM):
@@ -121,6 +125,9 @@ class TransactionOut(ORM):
     wash_id: int | None
     redemption_id: int | None
     created_at: datetime
+    # Pour un crédit : points encore disponibles et date d'expiration
+    remaining: int = 0
+    expires_at: datetime | None = None
 
 
 class PointsAdjustIn(BaseModel):

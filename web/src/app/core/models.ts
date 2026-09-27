@@ -24,7 +24,8 @@ export interface Center {
   booking_min_notice_minutes: number; booking_max_days_ahead: number; occupancy_moderate_ratio: number;
   occupancy_high_ratio: number; welcome_points: number; referral_referrer_points: number;
   referral_referee_points: number; loyal_min_visits: number; loyal_period_days: number;
-  inactive_after_days: number; points_payment_enabled: boolean; reminder_enabled: boolean; reminder_default_days: number; current_queue: number;
+  inactive_after_days: number; points_payment_enabled: boolean;
+  points_validity_months: number | null; points_expiry_reminders: number[]; reminder_enabled: boolean; reminder_default_days: number; current_queue: number;
 }
 
 export interface Occupancy {
@@ -108,7 +109,7 @@ export interface ClientSummary {
   balance: number; total_earned: number; visits: number; last_visit_at: string | null; is_loyal: boolean; created_at: string;
 }
 
-export interface Transaction { id: number; type: string; points: number; note: string | null; created_at: string; }
+export interface Transaction { id: number; type: string; points: number; note: string | null; created_at: string; remaining: number; expires_at: string | null; }
 
 export interface Dashboard {
   period: { from: string; to: string; days: number };
@@ -118,7 +119,7 @@ export interface Dashboard {
     anonymous_washes: number; new_clients: number; total_clients: number; returning_clients: number;
     loyal_clients: number; loyalty_rate: number; points_issued: number; points_redeemed: number;
     redemptions: Record<string, number>; bookings: number; water_saved_liters: number; queue: number;
-    reward_washes: number; points_washes: number; offered_value: number; points_spent_on_washes: number;
+    reward_washes: number; points_washes: number; offered_value: number; points_spent_on_washes: number; points_expired: number;
   };
   washes_per_day: { date: string; washes: number; revenue: number }[];
   hourly: { hour: number; washes: number }[];

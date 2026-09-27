@@ -21,6 +21,7 @@ class TransactionType(str, enum.Enum):
     adjust = "adjust"
     refund = "refund"
     wash_payment = "wash_payment"
+    expire = "expire"
 
 
 class RedemptionStatus(str, enum.Enum):

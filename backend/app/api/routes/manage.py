@@ -88,6 +88,7 @@ from app.schemas.center import (
 from app.core.permissions import DEFAULT_MANAGER_PERMISSIONS, PERMISSIONS, clean
 from app.services import stats as stats_service
 from app.services.platform_settings import get_setting
+from app.services.points import on_validity_change
 from app.services.loyalty import (
     add_points,
     cancel_redemption,
@@ -133,8 +134,14 @@ def update_center(body: CenterUpdate, ctx: SettingsCtx, db: DB):
     data = body.model_dump(exclude_unset=True)
     if "opening_hours" in data and data["opening_hours"] is not None:
         data["opening_hours"] = [d if isinstance(d, dict) else d.model_dump() for d in data["opening_hours"]]
+    if "points_expiry_reminders" in data:
+        data["points_expiry_reminders"] = sorted({d for d in data["points_expiry_reminders"] or [] if 0 < d <= 365},
+                                                 reverse=True)
+    previous_validity = ctx.center.points_validity_months
     for k, v in data.items():
         setattr(ctx.center, k, v)
+    if "points_validity_months" in data and data["points_validity_months"] != previous_validity:
+        on_validity_change(db, ctx.center, previous_validity)
     db.commit()
     return ctx.center
 
@@ -598,16 +605,36 @@ def list_washes(ctx: Ctx, db: DB, date_from: date | None = None, date_to: date |
 
 @router.delete("/washes/{wash_id}", status_code=204)
 def cancel_wash(wash_id: int, ctx: CancelCtx, db: DB):
-    """Annule un lavage saisi par erreur (retire les points attribués)."""
+    """Annule un lavage saisi par erreur.
+
+    Retire les points gagnés (en priorité sur le lot de ce lavage), rembourse les points dépensés s'il
+    a été payé en points, et rend à nouveau utilisable la récompense « lavage offert » utilisée.
+    """
     w = _own(db.get(Wash, wash_id), ctx, "Lavage")
-    if w.user_id and w.points_earned:
-        acc = db.scalar(select(LoyaltyAccount).where(LoyaltyAccount.user_id == w.user_id,
-                                                     LoyaltyAccount.center_id == ctx.center.id))
-        if acc:
-            add_points(db, acc, -min(w.points_earned, acc.balance), TransactionType.adjust,
-                       note=f"Annulation du lavage #{w.id}", created_by_id=ctx.user.id)
+    acc = db.scalar(select(LoyaltyAccount).where(LoyaltyAccount.user_id == w.user_id,
+                                                 LoyaltyAccount.center_id == ctx.center.id)) if w.user_id else None
+    if acc:
+        note = f"Annulation du lavage #{w.id}"
+        if w.points_earned:
+            earn = db.scalar(select(PointTransaction).where(PointTransaction.wash_id == w.id,
+                                                            PointTransaction.type == TransactionType.earn))
+            removed = min(w.points_earned, acc.balance)
+            if removed:
+                add_points(db, acc, -removed, TransactionType.adjust, note=note, created_by_id=ctx.user.id,
+                           prefer_lot=earn)
             acc.total_earned -= min(w.points_earned, acc.total_earned)
-            acc.visits = max(0, acc.visits - 1)
+        if w.payment_method == "points" and w.points_spent:
+            payment = db.scalar(select(PointTransaction).where(PointTransaction.wash_id == w.id,
+                                                               PointTransaction.type == TransactionType.wash_payment))
+            add_points(db, acc, w.points_spent, TransactionType.refund, note=note, created_by_id=ctx.user.id,
+                       restore_from=payment)
+        acc.visits = max(0, acc.visits - 1)
+    if w.payment_method == "reward":
+        redemption = db.scalar(select(Redemption).where(Redemption.wash_id == w.id))
+        if redemption:
+            redemption.status = RedemptionStatus.pending
+            redemption.used_at = None
+            redemption.wash_id = None
     db.delete(w)
     db.commit()
 

@@ -87,13 +87,19 @@ class _Points extends ConsumerWidget {
                           ListTile(
                             contentPadding: EdgeInsets.zero,
                             leading: CircleAvatar(
-                              backgroundColor: (t.points >= 0 ? AppColors.eco : AppColors.violet).withValues(alpha: .12),
-                              child: Icon(t.points >= 0 ? Icons.add_rounded : Icons.redeem_rounded,
-                                  color: t.points >= 0 ? AppColors.eco : AppColors.violet),
+                              backgroundColor: (t.type == 'expire' ? Colors.grey : t.points >= 0 ? AppColors.eco : AppColors.violet)
+                                  .withValues(alpha: .12),
+                              child: Icon(
+                                  t.type == 'expire' ? Icons.hourglass_disabled_rounded : t.points >= 0 ? Icons.add_rounded : Icons.redeem_rounded,
+                                  color: t.type == 'expire' ? Colors.grey : t.points >= 0 ? AppColors.eco : AppColors.violet),
                             ),
                             title: Text(t.label, style: const TextStyle(fontWeight: FontWeight.w700)),
-                            subtitle: Text([t.note, t.centerName, fmtDate(t.createdAt)].whereType<String>().join(' · '),
-                                maxLines: 2, overflow: TextOverflow.ellipsis),
+                            subtitle: Text(
+                                [
+                                  t.note, t.centerName, fmtDate(t.createdAt),
+                                  if (t.remaining > 0 && t.expiresAt != null) '${t.remaining} pts valables jusqu\'au ${fmtDate(t.expiresAt!)}',
+                                ].whereType<String>().join(' · '),
+                                maxLines: 3, overflow: TextOverflow.ellipsis),
                             trailing: Text('${t.points > 0 ? '+' : ''}${t.points}',
                                 style: TextStyle(
                                     fontWeight: FontWeight.w800, fontSize: 16,

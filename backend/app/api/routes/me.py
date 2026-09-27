@@ -44,6 +44,7 @@ from app.schemas.activity import (
 from app.services.loyalty import cancel_redemption, eco_saved_liters, get_or_create_account, redeem_reward
 from app.services.occupancy import available_slots
 from app.services.platform_settings import get_setting
+from app.services.points import expiry_summary
 from app.services.suggestions import compute_suggestions
 from app.services.timeutils import naive_utc_to_local, to_naive_utc
 
@@ -57,11 +58,14 @@ def accounts(user: CurrentUser, db: DB):
                           .order_by(LoyaltyAccount.last_visit_at.desc().nulls_last())):
         nxt = db.scalar(select(Reward).where(Reward.center_id == acc.center_id, Reward.is_active.is_(True),
                                              Reward.points_cost > acc.balance).order_by(Reward.points_cost))
+        expiry_at, expiry_points = expiry_summary(db, acc.id)
         out.append(AccountOut(id=acc.id, center_id=acc.center_id, center_name=acc.center.name,
                               center_logo_url=acc.center.logo_url, balance=acc.balance,
                               total_earned=acc.total_earned, total_spent=acc.total_spent, visits=acc.visits,
                               last_visit_at=acc.last_visit_at, next_reward_name=nxt.name if nxt else None,
-                              next_reward_points=nxt.points_cost if nxt else None))
+                              next_reward_points=nxt.points_cost if nxt else None,
+                              next_expiry_at=expiry_at, next_expiry_points=expiry_points,
+                              points_validity_months=acc.center.points_validity_months))
     return out
 
 

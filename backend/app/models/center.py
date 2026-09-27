@@ -50,6 +50,10 @@ class Center(Base):
     loyal_min_visits: Mapped[int] = mapped_column(Integer, default=3)
     loyal_period_days: Mapped[int] = mapped_column(Integer, default=90)
     inactive_after_days: Mapped[int] = mapped_column(Integer, default=45)
+    # Validité des points en mois à compter de leur gain (None = pas d'expiration)
+    points_validity_months: Mapped[int | None] = mapped_column(Integer)
+    # Relances avant expiration, en jours (ex. [30, 7])
+    points_expiry_reminders: Mapped[list] = mapped_column(JSON, default=lambda: [30, 7], server_default="[30, 7]")
     # Autoriser le règlement d'un lavage directement en points au comptoir
     points_payment_enabled: Mapped[bool] = mapped_column(Boolean, default=False, server_default="false")
 

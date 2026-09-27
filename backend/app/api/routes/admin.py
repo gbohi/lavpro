@@ -20,6 +20,7 @@ from app.models import (
 )
 from app.schemas.center import CenterOut
 from app.schemas.platform import AdminCenterOut, AppSettingOut, AppSettingUpdate, PlatformStats
+from app.services.points import expire_points, send_expiry_reminders
 from app.services.suggestions import run_reminders
 
 router = APIRouter(prefix="/admin", tags=["Super-admin"], dependencies=[Depends(require_superadmin)])
@@ -79,4 +80,8 @@ def platform_stats(db: DB):
 
 @router.post("/jobs/reminders")
 def trigger_reminders(db: DB):
-    return {"sent": run_reminders(db)}
+    """Lance immédiatement les tâches quotidiennes (expiration des points, relances, rappels de lavage)."""
+    expired = expire_points(db)
+    expiry = send_expiry_reminders(db)
+    sent = run_reminders(db)
+    return {"sent": sent + expiry, "wash_reminders": sent, "expiry_reminders": expiry, "points_expired": expired}

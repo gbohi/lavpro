@@ -28,6 +28,8 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
         'promotion' => (Icons.local_offer_rounded, AppColors.violetGradient),
         'bonus' => (Icons.redeem_rounded, AppColors.ecoGradient),
         'booking' => (Icons.event_rounded, AppColors.nightGradient),
+        'points_expiry' => (Icons.hourglass_bottom_rounded, AppColors.warmGradient),
+        'points_expired' => (Icons.hourglass_disabled_rounded, AppColors.nightGradient),
         _ => (Icons.notifications_rounded, AppColors.gradient),
       };
 

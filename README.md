@@ -29,6 +29,11 @@ Aucune donnée métier n'est codée en dur :
 
 **Clients (mobile)** : inscription unique avec QR code et code membre, soldes de points par centre, historique, récompenses et codes de retrait, centres les plus proches (liste et carte) avec affluence en temps réel, réservation de créneaux, suggestions selon la fréquence de visite et la météo (Open-Meteo), parrainage, Mode Écolo, notifications, thème clair/sombre, interface responsive (téléphone, tablette, desktop).
 
+**Durée de validité des points** (par centre) : « pas d'expiration » (par défaut) ou expiration X mois après
+chaque gain. Chaque gain forme un lot avec sa date ; les dépenses utilisent d'abord les points qui expirent le plus tôt,
+et une annulation restitue les points dans leurs lots d'origine. Relances « Vos points vont expirer » aux délais
+choisis par le centre (ex. J-30 et J-7), puis notification quand des points expirent. Échéance affichée dans l'app.
+
 **Droits des gestionnaires** : le propriétaire choisit pour chaque gestionnaire ce qu'il peut faire (gérer l'équipe,
 les laveurs, les services et prix, les récompenses et promotions, voir le chiffre d'affaires et les rapports, ajuster
 les points, annuler un lavage, modifier les paramètres). Valider les lavages, scanner, remettre les récompenses,
@@ -89,7 +94,8 @@ flutter run --dart-define=API_URL=http://<ip-de-votre-machine>:8000/api/v1
 Comptes de démo (après `seed_demo`) : gérant `demo@lavpro.app` / `demo1234`, client `client@lavpro.app` / `demo1234`.
 Super-admin : défini par `LAVPRO_SUPERADMIN_EMAIL` / `LAVPRO_SUPERADMIN_PASSWORD` dans `.env`.
 
-Les rappels intelligents s'exécutent via une tâche planifiée : `python -m app.jobs.reminders` (cron, ex. toutes les heures), ou depuis la page Administration.
+Les tâches quotidiennes (expiration des points, relances d'expiration, rappels intelligents de lavage) s'exécutent
+via `python -m app.jobs.daily` (cron, ex. chaque matin), ou depuis la page Administration.
 
 ## Tests
 

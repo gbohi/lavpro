@@ -148,6 +148,18 @@ class _CenterRewards extends ConsumerWidget {
     final rewards = ref.watch(centerRewardsProvider(a.centerId));
     return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
       SectionHeader(a.centerName, action: '${fmtNum(a.balance)} pts', onAction: () => context.push('/center/${a.centerId}')),
+      if (a.expiresWithin(60))
+        Padding(
+          padding: const EdgeInsets.only(bottom: 12),
+          child: Row(children: [
+            const Icon(Icons.hourglass_bottom_rounded, size: 16, color: AppColors.amber),
+            const SizedBox(width: 6),
+            Expanded(
+              child: Text('${fmtNum(a.nextExpiryPoints)} pts expirent le ${fmtDate(a.nextExpiryAt!)} : utilisez-les !',
+                  style: const TextStyle(color: AppColors.amber, fontWeight: FontWeight.w700, fontSize: 13)),
+            ),
+          ]),
+        ),
       rewards.when(
         data: (list) => list.isEmpty
             ? Text('Aucune récompense publiée pour le moment.', style: TextStyle(color: context.muted))

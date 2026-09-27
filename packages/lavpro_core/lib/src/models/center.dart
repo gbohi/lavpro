@@ -30,6 +30,7 @@ class WashCenter {
     required this.id, required this.name, this.description, required this.address, required this.city, this.phone,
     this.logoUrl, this.coverUrl, this.lat, this.lng, required this.currency, required this.bookingEnabled,
     required this.openingHours, this.distanceKm, this.occupancy, this.myBalance, this.pointsPaymentEnabled = false,
+    this.pointsValidityMonths,
   });
   final int id;
   final String name;
@@ -49,6 +50,8 @@ class WashCenter {
   final int? myBalance;
   /// Le centre accepte le règlement d'un lavage en points au comptoir.
   final bool pointsPaymentEnabled;
+  /// Durée de validité des points (null = pas d'expiration).
+  final int? pointsValidityMonths;
 
   String get fullAddress => [address, city].where((e) => e.isNotEmpty).join(', ');
 
@@ -67,7 +70,7 @@ class WashCenter {
         bookingEnabled: j['booking_enabled'] ?? false, openingHours: parseList(j['opening_hours'], OpeningDay.fromJson),
         distanceKm: (j['distance_km'] as num?)?.toDouble(),
         occupancy: j['occupancy'] == null ? null : Occupancy.fromJson(j['occupancy']), myBalance: j['my_balance'],
-        pointsPaymentEnabled: j['points_payment_enabled'] ?? false,
+        pointsPaymentEnabled: j['points_payment_enabled'] ?? false, pointsValidityMonths: j['points_validity_months'],
       );
 }
 

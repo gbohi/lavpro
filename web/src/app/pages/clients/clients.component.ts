@@ -9,7 +9,7 @@ import { ToastService } from '../../core/toast.service';
 import { ModalComponent } from '../../shared/modal.component';
 
 const TX_LABEL: Record<string, string> = {
-  earn: 'Lavage', redeem: 'Récompense', referral: 'Parrainage', welcome: 'Bienvenue', bonus: 'Bonus', adjust: 'Ajustement', refund: 'Remboursement', wash_payment: 'Lavage payé en points',
+  earn: 'Lavage', redeem: 'Récompense', referral: 'Parrainage', welcome: 'Bienvenue', bonus: 'Bonus', adjust: 'Ajustement', refund: 'Remboursement', wash_payment: 'Lavage payé en points', expire: 'Points expirés',
 };
 
 @Component({
@@ -73,7 +73,8 @@ const TX_LABEL: Record<string, string> = {
       @for (t of transactions(); track t.id) {
         <div class="list-item">
           <span class="badge" [class.success]="t.points > 0" [class.danger]="t.points < 0">{{ t.points > 0 ? '+' : '' }}{{ t.points }}</span>
-          <div style="flex:1"><strong>{{ txLabel[t.type] || t.type }}</strong><div class="small muted">{{ t.note }}</div></div>
+          <div style="flex:1"><strong>{{ txLabel[t.type] || t.type }}</strong><div class="small muted">{{ t.note }}</div>
+            @if (t.remaining && t.expires_at) { <div class="small" style="color:var(--warning)">{{ t.remaining }} pts restants · expirent le {{ t.expires_at | date:'dd/MM/yyyy' }}</div> }</div>
           <span class="small muted">{{ t.created_at | date:'dd/MM/yy HH:mm' }}</span>
         </div>
       } @empty { <p class="muted">Aucune transaction</p> }
